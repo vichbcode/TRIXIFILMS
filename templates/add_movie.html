@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <div class="max-w-3xl mx-auto bg-gray-800 p-4 sm:p-6 rounded shadow">
+    <h2 class="text-xl sm:text-2xl mb-4">Ajouter un film</h2>
+    <form id="add-movie-form" method="post" enctype="multipart/form-data" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div class="mb-3">
+        <label class="block mb-1 text-sm sm:text-base">Nom du film *</label>
+        <input name="nom" required class="w-full p-3 rounded text-black" />
+      </div>
+
+      <div class="mb-3">
+        <label class="block mb-1 text-sm sm:text-base">Résumé</label>
+        <textarea name="resume" class="w-full p-3 rounded text-black" rows="4"></textarea>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label class="block mb-1 text-sm sm:text-base">Réalisateurs</label>
+          <input name="realisateurs" class="w-full p-3 rounded text-black" />
+        </div>
+        <div>
+          <label class="block mb-1 text-sm sm:text-base">Scénaristes</label>
+          <input name="scenaristes" class="w-full p-3 rounded text-black" />
+        </div>
+      </div>
+
+      <div class="mb-3 mt-3">
+        <label class="block mb-1 text-sm sm:text-base">Productions</label>
+        <input name="productions" class="w-full p-3 rounded text-black" />
+      </div>
+
+      <div class="mb-3">
+        <label class="block mb-1 text-sm sm:text-base">Image du film</label>
+        <input type="file" name="image_film" accept="image/*" class="text-sm w-full" />
+      </div>
+
+      <hr class="my-4 border-gray-700">
+
+      <h3 class="text-lg sm:text-xl mb-2">Distribution / Équipe *</h3>
+      <p class="text-xs sm:text-sm text-gray-400 mb-2">Ajoute au moins une personne.</p>
+
+      <div id="actors_container" class="space-y-3">
+        <div class="actor_row flex flex-col sm:flex-row gap-2 p-3 bg-gray-850 rounded-lg border border-gray-700">
+          <input name="actor_name[]" placeholder="Nom complet" class="p-3 rounded text-black flex-1 w-full" required />
+          <select name="actor_role[]" class="p-3 rounded text-black w-full sm:w-auto">
+            <option>Acteur</option>
+            <option>Réalisateur</option>
+            <option>Scénariste</option>
+          </select>
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <label class="text-xs text-gray-400 whitespace-nowrap">Photo:</label>
+            <input type="file" name="actor_image[]" accept="image/*" class="text-xs flex-1" />
+            <button type="button" class="remove_btn hidden text-red-400 text-sm whitespace-nowrap">Suppr</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-4 flex flex-col sm:flex-row gap-2">
+        <button type="button" id="add_actor" class="bg-gray-700 px-4 py-3 rounded touch-target text-sm">+ Ajouter une personne</button>
+        <button type="submit" class="bg-red-400 px-4 py-3 rounded touch-target text-sm">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const container = document.getElementById('actors_container');
+  const addBtn = document.getElementById('add_actor');
+
+  function createActorRow() {
+    const row = document.createElement('div');
+    row.className = 'actor_row flex flex-col sm:flex-row gap-2 p-3 bg-gray-850 rounded-lg border border-gray-700';
+
+    const inName = document.createElement('input');
+    inName.name = 'actor_name[]';
+    inName.placeholder = 'Nom complet';
+    inName.className = 'p-3 rounded text-black flex-1 w-full';
+    inName.required = true;
+
+    const sel = document.createElement('select');
+    sel.name = 'actor_role[]';
+    sel.className = 'p-3 rounded text-black w-full sm:w-auto';
+    ['Acteur','Réalisateur','Scénariste'].forEach(r => {
+      const o = document.createElement('option');
+      o.value = r;
+      o.textContent = r;
+      sel.appendChild(o);
+    });
+
+    const fileWrap = document.createElement('div');
+    fileWrap.className = 'flex items-center gap-2 w-full sm:w-auto';
+    const label = document.createElement('span');
+    label.className = 'text-xs text-gray-400 whitespace-nowrap';
+    label.textContent = 'Photo:';
+    const file = document.createElement('input');
+    file.type = 'file';
+    file.name = 'actor_image[]';
+    file.accept = 'image/*';
+    file.className = 'text-xs flex-1';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'text-red-400 text-sm whitespace-nowrap px-2 py-1';
+    btn.textContent = 'Suppr';
+    btn.addEventListener('click', () => row.remove());
+
+    fileWrap.appendChild(label);
+    fileWrap.appendChild(file);
+    fileWrap.appendChild(btn);
+
+    row.appendChild(inName);
+    row.appendChild(sel);
+    row.appendChild(fileWrap);
+    return row;
+  }
+
+  addBtn.addEventListener('click', () => {
+    container.appendChild(createActorRow());
+  });
+});
+</script>
+{% endblock %}

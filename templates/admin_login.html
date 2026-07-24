@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin — Connexion{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto bg-gray-800 p-6 rounded shadow">
+  <h2 class="text-2xl mb-4">Connexion administrateur</h2>
+
+  <form method="post" action="{{ url_for('admin.login') }}" class="space-y-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    {% set next_url = request.args.get('next', '') %}
+    {% if next_url and next_url.startswith('/') %}
+    <input type="hidden" name="next" value="{{ next_url }}">
+    {% endif %}
+
+    <div>
+      <label for="password" class="block mb-1">Mot de passe</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required
+             class="w-full p-2 rounded text-black" />
+    </div>
+
+    <div class="flex items-center gap-3">
+      <button type="submit" class="bg-red-400 hover:bg-red-500 text-white px-4 py-2 rounded">Se connecter</button>
+      <a href="{{ url_for('main.index') }}" class="text-sm text-gray-400">Retour</a>
+    </div>
+  </form>
+
+</div>
+{% endblock %}

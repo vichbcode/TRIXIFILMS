@@ -1,0 +1,36 @@
+# Python
+venv/
+vendor/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Environment
+.env
+
+# Logs
+logs/
+*.log
+
+# Data
+*.xlsx.backup.*
+*.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+data/uploads/*
+!data/uploads/.gitkeep

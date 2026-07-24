@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+<div class="flex flex-col items-center">
+  {% if films %}
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4 w-full max-w-6xl">
+      {% for film in films %}
+        <a href="{{ url_for('main.film_detail', film_id=film['id']) }}" class="block group">
+          <div class="rounded overflow-hidden shadow-lg transform group-hover:scale-105 transition">
+            {% if film['image'] %}
+              <img src="{{ film['image'] }}" alt="{{ film['nom'] }}"
+                   class="aspect-[2/3] w-full object-cover">
+            {% else %}
+              <div class="aspect-[2/3] w-full bg-gray-700 flex items-center justify-center text-xs text-gray-400">
+                Pas d'image
+              </div>
+            {% endif %}
+          </div>
+          <p class="text-center mt-1.5 font-semibold text-xs sm:text-sm leading-tight">{{ film['nom'] }}</p>
+          {% if film['_matched_actors'] or film['_matched_realisateurs_text'] or film['_matched_scenaristes_text'] %}
+          <div class="text-center mt-0.5 text-xs text-yellow-400 leading-tight">
+            {% for ma in film['_matched_actors'] %}
+              <div>{{ ma['nom'] }} <span class="text-gray-500">({{ ma['role'] }})</span></div>
+            {% endfor %}
+            {% if film['_matched_realisateurs_text'] and not film['_matched_actors'] %}
+              <div class="text-gray-400">Réalisateur</div>
+            {% endif %}
+            {% if film['_matched_scenaristes_text'] and not film['_matched_actors'] %}
+              <div class="text-gray-400">Scénariste</div>
+            {% endif %}
+          </div>
+          {% endif %}
+        </a>
+      {% endfor %}
+    </div>
+
+    {% if total_pages > 1 %}
+    <nav class="mt-6 sm:mt-8 flex items-center gap-3" aria-label="Pagination">
+      {% if page > 1 %}
+      <a href="{{ url_for('main.index', q=query, filter=filter_by, page=page-1) }}"
+         class="bg-gray-800 hover:bg-gray-700 px-4 py-3 rounded touch-target text-sm">&laquo; Précédent</a>
+      {% endif %}
+      <span class="text-gray-400 text-xs sm:text-sm">Page {{ page }} / {{ total_pages }}</span>
+      {% if page < total_pages %}
+      <a href="{{ url_for('main.index', q=query, filter=filter_by, page=page+1) }}"
+         class="bg-gray-800 hover:bg-gray-700 px-4 py-3 rounded touch-target text-sm">Suivant &raquo;</a>
+      {% endif %}
+    </nav>
+    {% endif %}
+
+  {% else %}
+    <div class="text-center py-12">
+      {% if query %}
+        <p class="text-gray-400 mb-2">Aucun résultat pour "{{ query }}"</p>
+        <p class="text-gray-600 text-sm mb-4">Essayez avec d'autres termes ou modifiez le filtre.</p>
+      {% else %}
+        <p class="text-gray-400 mb-4">Aucun film pour le moment.</p>
+        <a href="{{ url_for('main.add_movie') }}"
+           class="bg-red-400 hover:bg-red-500 text-white px-6 py-3 rounded-lg touch-target inline-block">Ajouter un film</a>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

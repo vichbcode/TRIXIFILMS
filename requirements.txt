@@ -1,0 +1,19 @@
+# Application core
+Flask>=3.0
+Flask-WTF>=1.2
+Flask-Login>=0.6
+Flask-SQLAlchemy>=3.0
+SQLAlchemy>=2.0
+Pillow>=10.0
+requests>=2.31
+python-dotenv>=1.0
+
+# PostgreSQL
+psycopg2-binary>=2.9
+
+# Production server
+gunicorn>=21.2
+
+# Migration from Excel (one-time use only)
+pandas>=2.0
+openpyxl>=3.0

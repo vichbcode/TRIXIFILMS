@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-md mx-auto bg-gray-800 p-6 rounded shadow">
+  <h2 class="text-2xl mb-4">Créer un utilisateur</h2>
+
+  <form method="post" action="{{ url_for('auth.register') }}" class="space-y-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div>
+      <label for="prenom" class="block mb-1">Prénom</label>
+      <input id="prenom" name="prenom" type="text" autocomplete="username" required
+             class="w-full p-2 rounded text-black" minlength="2" maxlength="100">
+    </div>
+
+    <div>
+      <label for="password" class="block mb-1">Mot de passe</label>
+      <input id="password" name="password" type="password" autocomplete="new-password" required
+             class="w-full p-2 rounded text-black" minlength="6">
+    </div>
+
+    <div class="flex items-center gap-3">
+      <button type="submit" class="bg-red-400 hover:bg-red-500 text-white px-4 py-2 rounded">Créer</button>
+      <a href="{{ url_for('main.index') }}" class="text-sm text-gray-400">Retour</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
