@@ -34,6 +34,10 @@ services:
         sync: false
       - key: CLOUDINARY_FOLDER
         value: trixifilms
+      - key: TMDB_API_KEY
+        sync: false
+      - key: JWT_SECRET
+        sync: false
       - key: ADMIN_PRENOM
         sync: false
       - key: ADMIN_PASS

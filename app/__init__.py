@@ -50,7 +50,7 @@ def create_app():
         "script-src": ["'self'", "https://cdn.tailwindcss.com",
                        "https://www.youtube.com", "https://www.youtube-nocookie.com", "'unsafe-inline'"],
         "style-src": ["'self'", "'unsafe-inline'"],
-        "img-src": ["'self'", "data:", "https://image.tmdb.org", "https://i.ytimg.com"],
+        "img-src": ["'self'", "data:", "https://image.tmdb.org", "https://i.ytimg.com", "https://res.cloudinary.com"],
         "connect-src": ["'self'"],
         "form-action": ["'self'"],
         "frame-src": ["https://www.youtube.com", "https://www.youtube-nocookie.com"],
@@ -94,12 +94,12 @@ def create_app():
 
     @app.errorhandler(404)
     def not_found(e):
-        return render_template("404.html"), 404
+        return render_template("404.html", title="Page non trouvée"), 404
 
     @app.errorhandler(500)
     def internal_err(e):
         app.logger.exception("Internal server error")
-        return render_template("500.html"), 500
+        return render_template("500.html", title="Erreur interne"), 500
 
     @app.errorhandler(CSRFError)
     def handle_csrf_error(e):
