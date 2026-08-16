@@ -1,7 +1,6 @@
 import os
 import re
 import unicodedata
-import io
 import tempfile
 
 from flask import url_for, current_app
@@ -25,14 +24,30 @@ def normalize_text(s):
 def highlight_text(text, terms):
     try:
         s = str(text)
-        s_low = s.lower()
+        terms = [t for t in (terms or []) if t]
+        if not terms:
+            return Markup(s)
+        # Construit une version normalisée (sans accents) du texte avec la
+        # correspondance des positions vers l'original pour matcher correctement
+        # les recherches tapées sans accents (ex: "ecume" -> "L'Écume des jours").
+        norm_chars = []
+        orig_idx = []
+        for i, ch in enumerate(s):
+            n = normalize_text(ch)
+            if not n:
+                continue
+            for c in n:
+                norm_chars.append(c)
+                orig_idx.append(i)
+        norm_s = "".join(norm_chars)
         spans = []
         for t in terms:
-            if not t:
+            tn = normalize_text(t)
+            if not tn:
                 continue
-            pat = re.escape(t)
-            for m in re.finditer(pat, s_low):
-                spans.append((m.start(), m.end()))
+            pat = re.escape(tn)
+            for m in re.finditer(pat, norm_s):
+                spans.append((orig_idx[m.start()], orig_idx[m.end() - 1] + 1))
         if not spans:
             return Markup(s)
         spans.sort()
@@ -45,13 +60,16 @@ def highlight_text(text, terms):
                 merged.append((cur_s, cur_e))
                 cur_s, cur_e = a, b
         merged.append((cur_s, cur_e))
+        from markupsafe import escape
         out = []
         last = 0
         for a, b in merged:
-            out.append(s[last:a])
-            out.append("<mark>" + s[a:b] + "</mark>")
+            out.append(escape(s[last:a]))
+            out.append(Markup("<mark>"))
+            out.append(escape(s[a:b]))
+            out.append(Markup("</mark>"))
             last = b
-        out.append(s[last:])
+        out.append(escape(s[last:]))
         return Markup("".join(out))
     except Exception:
         return Markup(text)
@@ -104,40 +122,51 @@ def process_image(file_storage):
 
 
 def process_image_from_url(url):
-    import requests
-    try:
-        r = requests.get(url, stream=True, timeout=15)
-        r.raise_for_status()
-    except Exception:
+    """Télécharge une image distante et l'upload sur Cloudinary.
+    Renvoie {"url": ...} (URL Cloudinary) ou None en cas d'échec."""
+    from app.cloud import upload_image_url
+    if not url:
         return None
-    content_type = r.headers.get("Content-Type", "")
-    mime = content_type if content_type.startswith("image/") else "image/jpeg"
-    data = b""
-    try:
-        for chunk in r.iter_content(1024 * 16):
-            if chunk:
-                data += chunk
-        if not data:
-            return None
-        with Image.open(io.BytesIO(data)) as img:
-            img.verify()
-        return {"data": data, "mime": mime}
-    except Exception:
+    uploaded = upload_image_url(url)
+    if not uploaded:
         return None
+    return {"url": uploaded}
+
+
+import re
+
+
+def parse_youtube_id(text):
+    """Extrait l'ID vidéo YouTube depuis un lien (watch/short/embed/youtu.be) ou renvoie un ID brut."""
+    text = (text or "").strip()
+    if not text:
+        return ""
+    patterns = [
+        r"(?:v=|vi=)([0-9A-Za-z_-]{11})",
+        r"youtu\.be/([0-9A-Za-z_-]{11})",
+        r"youtube(?:-nocookie)?\.com/(?:embed|shorts|live)/([0-9A-Za-z_-]{11})",
+    ]
+    for p in patterns:
+        m = re.search(p, text)
+        if m:
+            return m.group(1)
+    if re.fullmatch(r"[0-9A-Za-z_-]{11}", text):
+        return text
+    return ""
 
 
 def image_url(film_or_actor, type_name):
-    if film_or_actor.image_data:
-        return url_for("main.serve_image", type=type_name, id=film_or_actor.id)
-    if film_or_actor.image:
-        img = film_or_actor.image
-        if not img.startswith("/"):
-            img = "/" + img
+    img = (film_or_actor.image or "").strip()
+    if not img:
+        try:
+            return url_for("static", filename="no_image.svg")
+        except Exception:
+            return "/static/no_image.svg"
+    if img.startswith(("http://", "https://")):
         return img
-    try:
-        return url_for("static", filename="no_image.svg")
-    except Exception:
-        return "/static/no_image.svg"
+    if not img.startswith("/"):
+        img = "/" + img
+    return img
 
 
 def film_to_dict(film):

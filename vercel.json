@@ -1,14 +1,30 @@
 {
   "builds": [
     {
+      "src": "static/**",
+      "use": "@vercel/static"
+    },
+    {
       "src": "api/index.py",
-      "use": "@vercel/python"
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "250mb"
+      }
     }
   ],
   "routes": [
     {
+      "src": "/static/(.*)",
+      "dest": "/static/$1"
+    },
+    {
       "src": "/(.*)",
       "dest": "api/index.py"
     }
-  ]
+  ],
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 60
+    }
+  }
 }

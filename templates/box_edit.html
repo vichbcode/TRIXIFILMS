@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="min-height:calc(100vh - 180px);display:flex;align-items:center;justify-content:center;padding:16px;">
+  <div style="width:100%;max-width:440px;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:32px 28px;">
+    <div style="text-align:center;margin-bottom:28px;">
+      <h2 style="margin:0;font-size:20px;font-weight:800;">Modifier la Box</h2>
+      <p style="color:var(--muted);font-size:13px;margin:6px 0 0 0;">Modifiez les informations de votre box</p>
+    </div>
+
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div style="margin-bottom:18px;">
+        <label style="display:block;margin-bottom:6px;color:var(--text-secondary);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Nom de la box *</label>
+        <input name="nom" value="{{ box.nom }}" required
+               style="width:100%;padding:12px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.04);color:var(--text);font-size:14px;outline:none;box-sizing:border-box;transition:border-color .15s;"
+               onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='rgba(255,255,255,0.06)'">
+      </div>
+
+      <div style="margin-bottom:18px;">
+        <label style="display:block;margin-bottom:6px;color:var(--text-secondary);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Description</label>
+        <textarea name="description" rows="3"
+                  style="width:100%;padding:12px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.04);color:var(--text);font-size:14px;outline:none;box-sizing:border-box;resize:vertical;transition:border-color .15s;font-family:inherit;"
+                  onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='rgba(255,255,255,0.06)'">{{ box.description }}</textarea>
+      </div>
+
+      <label style="display:flex;align-items:center;gap:10px;margin-bottom:24px;font-size:13px;color:var(--text);cursor:pointer;">
+        <input type="checkbox" name="is_public" id="is_public" {% if box.is_public %}checked{% endif %}
+               style="width:18px;height:18px;accent-color:var(--accent);">
+        Box publique
+      </label>
+
+      <button type="submit"
+              style="width:100%;padding:12px;border-radius:8px;background:var(--accent);color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s;margin-bottom:12px;"
+              onmouseover="this.style.background='var(--accent-hover)'" onmouseout="this.style.background='var(--accent)'">
+        Enregistrer
+      </button>
+
+      <a href="{{ url_for('box.box_view', box_id=box.id) }}" style="display:block;text-align:center;color:var(--muted);font-size:13px;text-decoration:none;">Annuler</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

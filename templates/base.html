@@ -2,90 +2,80 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>TRIXIFILMS - {{ title or "Accueil" }}</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body class="bg-gray-900 text-white min-h-screen">
-  <header class="bg-gray-800 shadow">
-    <div class="container mx-auto flex flex-wrap items-center justify-between px-3 py-3 gap-2">
-
-      <a href="{{ url_for('main.index') }}" class="flex items-center gap-2 shrink-0" aria-label="Accueil">
-        <h1 class="text-xl sm:text-2xl font-bold text-red-400 whitespace-nowrap">TRIXIFILMS</h1>
-      </a>
-
-      <div class="flex items-center gap-2 sm:gap-3">
-        <button id="search-toggle" class="sm:hidden bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-lg text-sm touch-target" aria-label="Rechercher">
-          &#x1f50d;
-        </button>
-
-        <form id="desktop-search" action="{{ url_for('main.index') }}" method="get" class="hidden sm:flex items-center gap-2">
-          <input name="q" value="{{ query if query is defined else '' }}" placeholder="Rechercher..."
-                 class="px-3 py-2 rounded text-black w-40 md:w-64" />
-          <select name="filter" class="px-2 py-2 rounded text-black text-sm" aria-label="Filtrer par">
-            <option value="all" {% if filter_by is defined and filter_by == 'all' %}selected{% endif %}>Tous</option>
-            <option value="nom" {% if filter_by is defined and filter_by == 'nom' %}selected{% endif %}>Nom</option>
-            <option value="realisateurs" {% if filter_by is defined and filter_by == 'realisateurs' %}selected{% endif %}>Réalisateur</option>
-            <option value="scenaristes" {% if filter_by is defined and filter_by == 'scenaristes' %}selected{% endif %}>Scénariste</option>
-            <option value="productions" {% if filter_by is defined and filter_by == 'productions' %}selected{% endif %}>Production</option>
-            <option value="resume" {% if filter_by is defined and filter_by == 'resume' %}selected{% endif %}>Résumé</option>
-            <option value="acteurs" {% if filter_by is defined and filter_by == 'acteurs' %}selected{% endif %}>Acteur</option>
-            <option value="role" {% if filter_by is defined and filter_by == 'role' %}selected{% endif %}>Rôle</option>
-          </select>
-          <button type="submit" class="bg-red-400 hover:bg-red-500 text-white px-3 py-2 rounded touch-target">&#x1f50d;</button>
-        </form>
-
-        {% if current_user.is_authenticated %}
-        <span class="hidden sm:inline text-gray-400 text-sm">{{ current_user.prenom }}</span>
-        <form method="post" action="{{ url_for('auth.logout') }}" class="inline">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button type="submit" class="text-gray-400 hover:text-white text-xs px-2 py-1 rounded touch-target">Déco</button>
-        </form>
-        <a href="{{ url_for('auth.register') }}" class="text-gray-400 hover:text-white text-xs px-2 py-1 rounded touch-target">+ User</a>
-        {% endif %}
-        <a href="{{ url_for('main.add_movie') }}" class="bg-red-400 hover:bg-red-500 text-white px-3 py-2 rounded-lg flex items-center gap-1 text-sm sm:text-base touch-target whitespace-nowrap">
-          <span class="hidden sm:inline">Ajouter</span><span class="text-lg">+</span>
-        </a>
-      </div>
-    </div>
-
-    <div id="mobile-search" class="hidden sm:hidden px-3 pb-3">
-      <form action="{{ url_for('main.index') }}" method="get" class="flex flex-col gap-2">
-        <div class="flex gap-2">
-          <input name="q" value="{{ query if query is defined else '' }}" placeholder="Rechercher film, acteur..."
-                 class="flex-1 px-3 py-2 rounded text-black text-sm" />
-          <button type="submit" class="bg-red-400 hover:bg-red-500 text-white px-4 py-2 rounded touch-target">&#x1f50d;</button>
-        </div>
-        <select name="filter" class="px-2 py-2 rounded text-black text-sm w-full" aria-label="Filtrer par">
-          <option value="all" {% if filter_by is defined and filter_by == 'all' %}selected{% endif %}>Tous</option>
+<body>
+  <header>
+    <div class="header-inner">
+      <a href="{{ url_for('main.index') }}" class="logo" aria-label="Accueil">TRIXIFILMS</a>
+      <form action="{{ url_for('main.index') }}" method="get" class="header-search">
+        <input name="q" value="{{ query if query is defined else '' }}" placeholder="Rechercher..." class="search-input" />
+        <select name="filter" class="search-select">
+          <option value="all" {% if filter_by is defined and filter_by == 'all' %}selected{% endif %}>Tout</option>
           <option value="nom" {% if filter_by is defined and filter_by == 'nom' %}selected{% endif %}>Nom</option>
           <option value="realisateurs" {% if filter_by is defined and filter_by == 'realisateurs' %}selected{% endif %}>Réalisateur</option>
           <option value="scenaristes" {% if filter_by is defined and filter_by == 'scenaristes' %}selected{% endif %}>Scénariste</option>
+          <option value="acteurs" {% if filter_by is defined and filter_by == 'acteurs' %}selected{% endif %}>Acteur</option>
           <option value="productions" {% if filter_by is defined and filter_by == 'productions' %}selected{% endif %}>Production</option>
           <option value="resume" {% if filter_by is defined and filter_by == 'resume' %}selected{% endif %}>Résumé</option>
-          <option value="acteurs" {% if filter_by is defined and filter_by == 'acteurs' %}selected{% endif %}>Acteur</option>
-          <option value="role" {% if filter_by is defined and filter_by == 'role' %}selected{% endif %}>Rôle</option>
         </select>
+        <select name="categorie" class="search-select">
+          <option value="">Genre</option>
+          {% for cat in ['Action','Aventure','Comédie','Comédie dramatique','Drame','Horreur','Thriller','Science-Fiction','Fantastique','Animation','Documentaire','Policier','Romance','Guerre','Western','Musical','Biopic','Historique','Espionnage','Famille','Fantasy','Mystère','Sport'] %}
+          <option value="{{ cat }}" {% if categorie_filter is defined and categorie_filter == cat %}selected{% endif %}>{{ cat }}</option>
+          {% endfor %}
+        </select>
+        <select name="origine" class="search-select">
+          <option value="">Origine</option>
+          {% for orig in ['Américaine','Française','Britannique','Allemande','Italienne','Espagnole','Japonaise','Coréenne','Chinoise','Indienne','Russe','Australienne','Canadienne','Belge','Suisse','Autre'] %}
+          <option value="{{ orig }}" {% if origine_filter is defined and origine_filter == orig %}selected{% endif %}>{{ orig }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="search-btn">OK</button>
       </form>
+      <div class="header-right">
+        <a href="{{ url_for('box.box_list') }}" class="nav-link">Box</a>
+        {% if current_user.is_authenticated %}
+        <a href="{{ url_for('top.top_list') }}" class="nav-link">Top</a>
+        <a href="{{ url_for('box.my_boxs') }}" class="nav-link">Mes Box</a>
+        <a href="{{ url_for('auth.account') }}" style="font-size:13px;font-weight:600;color:var(--text-secondary);padding:6px 10px;border-radius:var(--radius);white-space:nowrap;text-decoration:none;">Mon compte</a>
+        <form method="post" action="{{ url_for('auth.logout') }}" class="inline" style="margin-left:4px;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-logout">Déconnexion</button>
+        </form>
+        {% else %}
+        <a href="{{ url_for('auth.login') }}" class="nav-link" style="color:var(--accent);font-weight:600;">Connexion</a>
+        <a href="{{ url_for('auth.register') }}" class="nav-link" style="background:var(--accent);color:#fff;border-radius:4px;padding:4px 10px;">S'inscrire</a>
+        {% endif %}
+      </div>
     </div>
   </header>
 
-  <main class="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
+  <main>
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
-        <div class="mb-4 space-y-2">
+        <div class="flash-container">
           {% for cat, msg in messages %}
-            <div class="p-3 rounded {{ 'bg-green-600' if cat=='success' else 'bg-red-600' }} text-sm sm:text-base">
-              {{ msg }}
-            </div>
+            <div class="flash {{ cat }}">{{ msg }}</div>
           {% endfor %}
         </div>
       {% endif %}
     {% endwith %}
     {% block content %}{% endblock %}
   </main>
+
+  {% block scripts %}{% endblock %}
+
+  <a href="{{ url_for('main.shorts') }}" class="shorts-fab" title="Bandes-annonces" aria-label="Bandes-annonces">
+    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="1.5" y="4.5" width="21" height="15" rx="4.5"></rect>
+      <polygon points="13.2,6.8 9.2,12.6 12.2,12.6 10.8,17.2 14.8,11.4 11.8,11.4" fill="currentColor" stroke="none"></polygon>
+    </svg>
+  </a>
 
   <script>
     (function(){
@@ -124,16 +114,6 @@
           });
         });
       }
-
-      document.addEventListener('DOMContentLoaded', function(){
-        const toggle = document.getElementById('search-toggle');
-        const panel = document.getElementById('mobile-search');
-        if (toggle && panel) {
-          toggle.addEventListener('click', function(){
-            panel.classList.toggle('hidden');
-          });
-        }
-      });
     })();
   </script>
 </body>

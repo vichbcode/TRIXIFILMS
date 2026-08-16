@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width:500px;margin:0 auto;text-align:center;padding:40px 16px;">
+  <div style="width:72px;height:72px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:28px;font-weight:800;color:#fff;">
+    {{ current_user.prenom[:2].upper() }}
+  </div>
+  <h2 style="margin:0 0 4px 0;font-size:22px;font-weight:800;">{{ current_user.prenom }}</h2>
+  <p style="color:var(--muted);margin:0 0 24px 0;font-size:13px;">
+    Membre depuis {{ current_user.created_at.strftime('%d/%m/%Y') if current_user.created_at else '—' }}
+  </p>
+  <div style="display:flex;gap:16px;justify-content:center;margin-bottom:28px;">
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 28px;flex:1;max-width:140px;">
+      <div style="font-size:28px;font-weight:800;color:var(--accent);">{{ box_count }}</div>
+      <div style="font-size:12px;color:var(--muted);">Box</div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 28px;flex:1;max-width:140px;">
+      <div style="font-size:28px;font-weight:800;color:var(--accent);">{{ top_count }}</div>
+      <div style="font-size:12px;color:var(--muted);">Top</div>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px;align-items:center;">
+    <a href="{{ url_for('box.my_boxs') }}" class="btn btn-primary" style="display:inline-flex;">Mes Box ({{ box_count }})</a>
+    <a href="{{ url_for('top.top_list') }}" class="btn btn-ghost" style="display:inline-flex;">Voir le Top</a>
+    <button id="edit-account-btn" class="btn btn-ghost" style="display:inline-flex;">Modifier mon compte</button>
+  </div>
+
+  <div id="edit-account-form" style="display:none;margin-top:24px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;text-align:left;">
+    <h3 style="margin:0 0 16px 0;font-size:16px;font-weight:700;text-align:center;">Modifier mon compte</h3>
+    <form method="post" action="{{ url_for('auth.account') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px;">Prénom</label>
+        <input name="prenom" value="{{ current_user.prenom }}" maxlength="100" required
+               style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;box-sizing:border-box;">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px;">Nouveau mot de passe (optionnel)</label>
+        <input name="password" type="password" minlength="8" placeholder="Laisser vide pour garder l'actuel"
+               style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;box-sizing:border-box;">
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;">Enregistrer</button>
+    </form>
+  </div>
+
+  <div style="margin-top:32px;padding-top:24px;border-top:1px solid var(--border);">
+    <button id="delete-account-btn" class="btn btn-danger" style="display:inline-flex;">Supprimer mon compte</button>
+  </div>
+</div>
+
+<div id="delete-account-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);z-index:1000;align-items:center;justify-content:center;padding:18px;box-sizing:border-box;">
+  <div style="background:var(--card);border:1px solid rgba(217,65,62,.35);border-radius:16px;padding:28px;max-width:400px;width:100%;box-shadow:0 24px 64px rgba(0,0,0,0.8);text-align:center;">
+    <h3 style="margin:0 0 8px 0;font-size:20px;">Supprimer votre compte ?</h3>
+    <p style="color:var(--muted);margin:0 0 20px 0;font-size:14px;">
+      Voulez-vous vraiment supprimer définitivement votre compte ? Cette action est <strong style="color:var(--danger);">irréversible</strong> : vos box et vos tops seront également supprimés.
+    </p>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button id="delete-account-cancel" class="btn btn-ghost" style="flex:1;">Annuler</button>
+      <form id="delete-account-form" method="post" action="{{ url_for('auth.delete_account') }}" style="flex:1;display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-danger" style="width:100%;">Supprimer</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('edit-account-btn')?.addEventListener('click', function(){
+  const form = document.getElementById('edit-account-form');
+  form.style.display = form.style.display === 'none' || form.style.display === '' ? 'block' : 'none';
+});
+const delBtn = document.getElementById('delete-account-btn');
+const delModal = document.getElementById('delete-account-modal');
+const delCancel = document.getElementById('delete-account-cancel');
+if (delBtn && delModal) {
+  delBtn.addEventListener('click', function(){ delModal.style.display = 'flex'; });
+  delCancel.addEventListener('click', function(){ delModal.style.display = 'none'; });
+  delModal.addEventListener('click', function(e){ if (e.target === delModal) delModal.style.display = 'none'; });
+}
+</script>
+{% endblock %}

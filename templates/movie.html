@@ -3,109 +3,168 @@
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='movie.css') }}">
 
-<div class="wrap">
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      <div style="margin-bottom:14px;">
-        {% for cat, msg in messages %}
-          <div class="flash {{ 'success' if cat=='success' else 'error' }}" style="padding:10px;border-radius:10px;margin-bottom:8px; {{ 'background: rgba(22,163,74,0.12); color: var(--success);' if cat=='success' else 'background: rgba(239,68,68,0.12); color: var(--danger);' }}">
-            {{ msg }}
-          </div>
-        {% endfor %}
-      </div>
-    {% endif %}
-  {% endwith %}
+{# ══════════════════════ HERO ══════════════════════ #}
+<section class="m-hero" aria-label="{{ film['nom'] }}">
+  <div class="m-backdrop" style="background-image:url('{{ film['image'] }}')"></div>
+  <div class="m-backdrop-mask"></div>
 
-  <div class="top-row">
-    <div class="poster" aria-hidden="true">
-      <img src="{{ film['image'] }}" alt="Affiche — {{ film['nom'] }}">
+  <div class="m-hero-inner">
+    <div class="m-poster">
+      <img src="{{ film['image'] }}" alt="Affiche — {{ film['nom'] }}" />
     </div>
 
-    <div class="meta">
-      <h1>{{ film['nom']|safe }}</h1>
-      <div class="sub">
-        <strong>{{ film['realisateurs']|safe }}</strong>
-        <span style="color:var(--muted);"> — {{ film['scenaristes']|safe }}</span>
+    <div class="m-hero-info">
+      <div class="m-chips">
+        {% if film.get('categorie') %}<span class="m-chip cat">{{ film['categorie'] }}</span>{% endif %}
+        {% if film.get('origine') %}<span class="m-chip orig">{{ film['origine'] }}</span>{% endif %}
+        {% if film.get('langue_originale') %}<span class="m-chip lang">{{ film['langue_originale'] }}</span>{% endif %}
       </div>
 
-      <div class="summary">
-        <div class="rating-summary" aria-hidden="true">
-          <div class="stars-outer">
-            <div class="stars-top" style="width: {{ (avg / 5 * 100) if avg else 0 }}%;">
-              <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
-            </div>
-            <div class="stars-bottom">
-              <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
-            </div>
+      {% if film.get('titre_original') and film['titre_original'] != film['nom'] %}
+      <h1 class="m-title">{{ film['titre_original'] }}</h1>
+      <div class="m-title-sub">{{ film['nom'] }}</div>
+      {% else %}
+      <h1 class="m-title">{{ film['nom'] }}</h1>
+      {% endif %}
+
+      <div class="m-sub">
+        <strong>{{ film['realisateurs'] }}</strong>
+        {% if film['scenaristes'] %}<span style="color:var(--muted);"> — {{ film['scenaristes'] }}</span>{% endif %}
+      </div>
+
+      <div class="m-rating rating-summary">
+        <div class="m-stars stars-outer">
+          <div class="m-stars-top stars-top" style="width: {{ (avg / 5 * 100) if avg else 0 }}%;">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
           </div>
-          <div class="rating-meta" style="min-width:120px;">
-            {% if avg %}
-              <strong id="avg-value">{{ avg }}</strong> / 5 — <span id="votes-count">{{ votes }}</span> vote{{ 's' if votes > 1 else '' }}
-            {% else %}
-              <strong id="avg-value">—</strong> / 5 — <span id="votes-count">0</span> vote
-            {% endif %}
+          <div class="m-stars-bottom stars-bottom">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
           </div>
         </div>
-
-        <div style="color:var(--muted); font-size:13px; margin-left:8px;">{{ film['productions']|safe }}</div>
+        <div class="m-rating-text">
+          {% if avg %}
+            <strong id="avg-value">{{ avg }}</strong> / 5 · <span id="votes-count">{{ votes }}</span> vote{{ 's' if votes > 1 else '' }}
+          {% else %}
+            <strong id="avg-value">—</strong> / 5 · <span id="votes-count">0</span> vote
+          {% endif %}
+        </div>
       </div>
 
-      <div style="margin-top:14px; color:var(--text); line-height:1.6;">
-        {{ film['resume']|safe }}
+      <div class="m-hero-actions">
+        {% if film.get('trailer') %}
+        <button type="button" class="m-btn m-btn-trailer js-trailer-open">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+            <polygon points="8,5 20,12 8,19 8,5"></polygon>
+          </svg>
+          Bande-annonce
+        </button>
+        {% endif %}
+        <a href="{{ url_for('main.edit_movie', movie_id=film['id']) }}" class="m-btn m-btn-green">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+          Modifier
+        </a>
+        <a href="{{ url_for('main.index') }}" class="m-btn m-btn-ghost">Retour</a>
       </div>
-
-      <div style="margin-top:14px; display:flex; gap:10px; align-items:center;">
-        <a href="{{ url_for('main.edit_movie', movie_id=film['id']) }}" class="btn-send" style="background: linear-gradient(180deg,#6ee7b7,#34d399);">Modifier</a>
-        <a href="{{ url_for('main.index') }}" class="btn-send" style="background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--text);">Retour</a>
-      </div>
-
     </div>
   </div>
+</section>
 
-  <section class="actors" aria-labelledby="actors-title">
-    <h3 id="actors-title">Distribution & équipe</h3>
+{# ══════════════════════ CONTENU ══════════════════════ #}
+<div class="m-content">
+
+  {% if film['resume'] %}
+  <section class="card-glass m-synopsis">
+    <h3 class="m-section-title">Synopsis</h3>
+    <p class="m-resume" id="m-resume">{{ film['resume'] }}</p>
+    <button type="button" class="m-expand-btn" id="m-expand-btn">Lire la suite</button>
+  </section>
+  {% endif %}
+
+  <section class="card-glass" aria-labelledby="actors-title">
+    <h3 class="m-section-title" id="actors-title">Distribution</h3>
     {% if acteurs %}
-      <div class="actor-grid" role="list">
+      <div class="m-cast-scroll">
         {% for a in acteurs %}
-          <div class="actor-card" role="listitem">
-            <div class="actor-thumb" aria-hidden="true">
-              {% if a.image %}
-                <img src="{{ a.image }}" alt="Photo de {{ a.nom }}">
+          <div class="m-cast-item">
+            <div class="m-cast-photo" aria-hidden="true">
+              {% if a.image and a.image != '' %}
+                <img src="{{ a.image }}" alt="Photo de {{ a.nom }}" loading="lazy" />
               {% else %}
                 <span>{{ (a.nom.split()|map('first')|join('') )[:2] }}</span>
               {% endif %}
             </div>
-            <div class="actor-name">{{ a.nom }}</div>
-            <div class="actor-sub">{{ a.role }}</div>
+            <div class="m-cast-name">{{ a.nom }}</div>
+            <div class="m-cast-role">{{ a.role }}</div>
           </div>
         {% endfor %}
       </div>
     {% else %}
-      <div class="msg-empty" style="padding:12px; border-radius:10px;">Aucun membre de l'équipe renseigné pour ce film.</div>
+      <div class="m-cast-empty">Aucun membre de l'équipe renseigné pour ce film.</div>
     {% endif %}
   </section>
 
-  <div class="messages-panel" style="align-items:flex-start;">
-    <div class="messages-col">
-      <h3>Commentaires</h3>
+  <section class="card-glass" aria-labelledby="info-title">
+    <h3 class="m-section-title" id="info-title">Fiche du film</h3>
+    <div class="m-info-grid">
+      {% if film['realisateurs'] %}
+      <div class="m-info-cell">
+        <div class="m-info-label">Réalisation</div>
+        <div class="m-info-value">{{ film['realisateurs'] }}</div>
+      </div>
+      {% endif %}
+      {% if film['scenaristes'] %}
+      <div class="m-info-cell">
+        <div class="m-info-label">Scénario</div>
+        <div class="m-info-value">{{ film['scenaristes'] }}</div>
+      </div>
+      {% endif %}
+      {% if film['productions'] %}
+      <div class="m-info-cell">
+        <div class="m-info-label">Production</div>
+        <div class="m-info-value">{{ film['productions'] }}</div>
+      </div>
+      {% endif %}
+      {% if film.get('categorie') %}
+      <div class="m-info-cell">
+        <div class="m-info-label">Genre</div>
+        <div class="m-info-value">{{ film['categorie'] }}</div>
+      </div>
+      {% endif %}
+      {% if film.get('origine') %}
+      <div class="m-info-cell">
+        <div class="m-info-label">Origine</div>
+        <div class="m-info-value">{{ film['origine'] }}</div>
+      </div>
+      {% endif %}
+      {% if film.get('langue_originale') %}
+      <div class="m-info-cell">
+        <div class="m-info-label">Langue originale</div>
+        <div class="m-info-value">{{ film['langue_originale'] }}</div>
+      </div>
+      {% endif %}
+      {% if film.get('titre_original') and film['titre_original'] != film['nom'] %}
+      <div class="m-info-cell m-info-full">
+        <div class="m-info-label">Titre original</div>
+        <div class="m-info-value">{{ film['titre_original'] }}</div>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <div class="m-panel">
+
+    <div class="card-glass">
+      <h3 class="m-section-title">Commentaires</h3>
 
       {% if messages %}
-        <div class="message-list" id="message-list">
+        <div class="msg-list" id="message-list">
           {% for m in messages %}
-            <article class="message-card" data-created-at="{{ m.created_at }}">
-              <div class="msg-avatar" aria-hidden="true">
-                {% if m.prenom %}
-                  {{ m.prenom[0:2].upper() }}
-                {% else %}
-                  ?
-                {% endif %}
-              </div>
+            <article class="msg-card" data-created-at="{{ m.created_at }}">
+              <div class="msg-avatar" aria-hidden="true">{{ (m.prenom or '?')[:2].upper() }}</div>
               <div class="msg-content">
-                <div class="msg-header">
-                  <div>
-                    <div class="msg-name">{{ m.prenom }}</div>
-                    <div class="msg-time">{{ m.created_at }}</div>
-                  </div>
+                <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
+                  <span class="msg-name">{{ m.prenom }}</span>
+                  <span class="msg-time">{{ m.created_at }}</span>
                 </div>
                 <div class="msg-text">{{ m.message }}</div>
               </div>
@@ -113,32 +172,25 @@
           {% endfor %}
         </div>
       {% else %}
-        <div class="msg-empty" style="padding:12px;border-radius:10px;">Pas encore de messages — soyez le premier !</div>
+        <div class="msg-empty">Pas encore de messages — soyez le premier !</div>
       {% endif %}
 
-      <form class="composer" method="post" action="{{ url_for('main.film_message', film_id=film['id']) }}">
+      <form class="m-composer" method="post" action="{{ url_for('main.film_message', film_id=film['id']) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input id="prenom_msg" name="prenom_msg" class="input-small" placeholder="Votre prénom" required>
-        <textarea id="message" name="message" class="input-giant" placeholder="Votre message..." rows="4" required></textarea>
-
-        <div class="composer-row" style="justify-content:space-between; align-items:center;">
-          <div style="display:flex; gap:8px;">
-            <button type="submit" class="btn-send">Envoyer le message</button>
-          </div>
-          <div style="color:var(--muted); font-size:13px;">Règles : restez poli·e — pas de spam.</div>
-        </div>
+        <textarea id="message" name="message" class="input-giant" placeholder="Votre message..." rows="3" required></textarea>
+        <button type="submit" class="m-btn m-btn-indigo m-btn-block">Envoyer le message</button>
       </form>
     </div>
 
-    <aside class="sidebox" aria-labelledby="rate-title">
-      <h3 id="rate-title">Noter ce film</h3>
+    <aside class="card-glass m-rating-card" id="rating-anchor">
+      <h3 class="m-section-title">Noter ce film</h3>
 
       <form id="rating-form" method="post" action="{{ url_for('main.film_rate', film_id=film['id']) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input id="prenom" name="prenom" placeholder="Votre prénom" class="input-small" required>
 
-        <div id="interactive-stars" class="interactive-stars" role="slider" aria-label="Note" aria-valuemin="0.5" aria-valuemax="5" aria-valuenow="0" style="margin-top:10px;">
-          <div class="stars-outer" aria-hidden="true">
+        <div id="interactive-stars" class="interactive-stars" role="slider" aria-label="Note" aria-valuemin="0.5" aria-valuemax="5" aria-valuenow="0" style="margin-top:8px;">
+          <div class="stars-outer">
             <div class="stars-top" id="interactive-top" style="width:0%;">
               <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
             </div>
@@ -146,67 +198,133 @@
               <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
             </div>
           </div>
-          <div class="stars-hint" style="margin-top:8px;color:var(--muted);font-size:13px;"></div>
+          <div class="stars-hint" style="margin-top:8px;color:var(--muted);font-size:12px;"></div>
         </div>
 
         <input type="hidden" name="note" id="note-input" value="">
-        <div style="margin-top:12px;">
-          <button id="rating-submit" type="submit" class="btn-send" disabled>Envoyer la note</button>
-        </div>
-        <div id="rating-msg" role="status" aria-live="polite" style="margin-top:8px;color:var(--muted);font-size:13px;"></div>
+        <button id="rating-submit" type="submit" class="m-btn m-btn-amber m-btn-block" disabled style="margin-top:10px;">Envoyer la note</button>
+        <div id="rating-msg" role="status" aria-live="polite" style="margin-top:8px;color:var(--muted);font-size:12px;"></div>
       </form>
 
-      <div style="margin-top:14px; color:var(--muted); font-size:13px;">
-        Les notes vont de 0.5 à 5.0 (pas à pas de 0.5). Votre prénom sert à éviter les doublons.
+      <div style="color:var(--muted); font-size:12px; line-height:1.5;">
+        Les notes vont de 0.5 à 5.0 (pas à pas de 0.5).{% if current_user.is_authenticated %} Votre note sera enregistrée sous « {{ current_user.prenom }} ».{% endif %}
       </div>
 
-      <div id="modal-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;">
-        <div style="background:#1a202c;border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:28px;max-width:400px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,0.8);text-align:center;">
-          <div style="font-size:48px;margin-bottom:12px;">⚠️</div>
-          <h3 style="margin:0 0 8px 0;font-size:20px;">Confirmer la suppression</h3>
-          <p style="color:var(--muted);margin:0 0 20px 0;font-size:15px;">Voulez-vous vraiment supprimer ce film ? Cette action est <strong style="color:var(--danger);">irréversible</strong>.</p>
-          <div style="display:flex;gap:10px;justify-content:center;">
-            <button id="modal-cancel" class="btn-send" style="background:transparent;border:1px solid rgba(255,255,255,0.1);color:var(--text);flex:1;">Annuler</button>
-            <button id="modal-confirm" class="btn-send" style="background:#ef4444;flex:1;">Supprimer</button>
-          </div>
-        </div>
-      </div>
-
-      <div style="margin-top:18px; border-top:1px solid rgba(255,255,255,0.06); padding-top:16px;">
+      <div style="border-top:1px solid var(--border); padding-top:14px; margin-top:4px;">
         {% if current_user.is_authenticated %}
-          <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
-            <span style="color:var(--success); font-size:14px;">Connecté(e) : <strong>{{ current_user.prenom }}</strong></span>
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+            <span style="color:var(--success); font-size:13px;">Connecté : <strong>{{ current_user.prenom }}</strong></span>
             <form method="post" action="{{ url_for('auth.logout') }}" style="display:inline;">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit" class="btn-send" style="background:transparent;border:1px solid rgba(255,255,255,0.1);color:var(--muted);font-size:12px;padding:6px 10px;">Déconnexion</button>
+              <button type="submit" class="m-btn m-btn-ghost" style="padding:6px 12px;font-size:11px;min-height:32px;">Déconnexion</button>
             </form>
           </div>
+
+          <button id="add-to-box-btn" class="m-btn m-btn-indigo m-btn-block" style="margin-bottom:8px;">+ Ajouter à une box</button>
+
+          <div id="add-to-box-form" style="display:none; margin-bottom:10px; background:rgba(255,255,255,.03); border-radius:12px; padding:12px;">
+            <form method="post" action="{{ url_for('box.box_add_film', box_id=0) }}" id="box-add-form">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="film_id" value="{{ film['id'] }}">
+              <input type="hidden" name="box_id" id="selected-box-id" value="">
+              <select name="box_id_select" id="box-select" required
+                      style="width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:13px;margin-bottom:8px;cursor:pointer;">
+                <option value="" style="background:var(--card);color:var(--muted);">Choisir une box...</option>
+                {% for b in current_user.boxs %}
+                <option value="{{ b.id }}" style="background:var(--card);color:var(--text);">{{ b.nom }}</option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="m-btn m-btn-indigo m-btn-block">Ajouter le film</button>
+            </form>
+            <p style="margin-top:6px;font-size:11px;color:var(--muted);text-align:center;">
+              <a href="{{ url_for('box.box_new') }}" style="color:var(--accent);font-weight:600;">+ Créer une nouvelle box</a>
+            </p>
+          </div>
+
+          <button id="add-to-top-btn" class="m-btn m-btn-amber m-btn-block" style="margin-bottom:8px;">+ Marquer dans le Top</button>
+
+          <div id="add-to-top-form" style="display:none; margin-bottom:10px; background:rgba(255,255,255,.03); border-radius:12px; padding:12px;">
+            <form method="post" action="{{ url_for('top.top_add') }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="film_id" value="{{ film['id'] }}">
+              <select name="position" required
+                      style="width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:13px;margin-bottom:8px;cursor:pointer;">
+                <option value="" style="background:var(--card);color:var(--muted);">Position 1-20...</option>
+                {% for p in range(1, 21) %}
+                <option value="{{ p }}" style="background:var(--card);color:var(--text);">Top {{ p }}</option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="m-btn m-btn-amber m-btn-block">Ajouter au Top</button>
+            </form>
+          </div>
+
+          {% if current_user.is_admin %}
           <form id="delete-form" method="post" action="{{ url_for('main.delete_movie', film_id=film['id']) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="button" id="delete-btn" class="btn-send" style="background:#ef4444;width:100%;">Supprimer ce film</button>
-            <div style="margin-top:8px;color:var(--muted);font-size:13px;">Attention : suppression irréversible.</div>
+            <button type="button" id="delete-btn" class="m-btn m-btn-danger m-btn-block">Supprimer ce film</button>
+            <div style="margin-top:6px;color:var(--muted);font-size:12px;text-align:center;">Action irréversible.</div>
           </form>
-        {% else %}
-          <button id="auth-toggle" class="btn-send" style="background:transparent;border:1px solid rgba(255,255,255,0.1);color:var(--text);width:100%;">Authentification</button>
-          <div id="auth-form" style="display:none; margin-top:10px;">
-            <form method="post" action="{{ url_for('auth.login') }}">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <label style="display:block; margin-bottom:4px; color:var(--muted); font-size:13px;">Prénom</label>
-              <input name="prenom" placeholder="Votre prénom" class="input-small" required style="margin-bottom:8px;">
-              <label style="display:block; margin-bottom:4px; color:var(--muted); font-size:13px;">Mot de passe</label>
-              <input type="password" name="password" placeholder="Mot de passe" class="input-small" required style="margin-bottom:10px;">
-              <button type="submit" class="btn-send" style="width:100%;">Se connecter</button>
-            </form>
-          </div>
+          {% endif %}
         {% endif %}
       </div>
-
     </aside>
+  </div>
+</div>
+
+{# ══════════════════════ BARRE BASSE MOBILE ══════════════════════ #}
+{% if film.get('trailer') or true %}
+<div class="m-bottom-bar" id="m-bottom-bar">
+  {% if film.get('trailer') %}
+  <button type="button" class="m-btn m-btn-trailer js-trailer-open">
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
+      <polygon points="8,5 20,12 8,19 8,5"></polygon>
+    </svg>
+    Bande-annonce
+  </button>
+  {% endif %}
+  <button type="button" class="m-btn m-btn-ghost" id="m-rate-btn">
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><polygon points="12,2 15,9 22,9 16.5,14 18.5,21 12,17 5.5,21 7.5,14 2,9 9,9"></polygon></svg>
+    Noter
+  </button>
+</div>
+{% endif %}
+
+{# ══════════════════════ MODAL TRAILER ══════════════════════ #}
+{% if film.get('trailer') %}
+<div id="trailer-modal" class="m-modal-overlay">
+  <div style="position:relative;width:100%;max-width:860px;">
+    <button id="trailer-close" style="position:absolute;top:-44px;right:0;background:rgba(255,255,255,.1);border:none;color:#fff;font-size:22px;width:38px;height:38px;border-radius:50%;cursor:pointer;z-index:5;" aria-label="Fermer">&times;</button>
+    <div style="aspect-ratio:16/9;width:100%;background:#000;border-radius:12px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.7);">
+      <iframe id="trailer-iframe" width="100%" height="100%" style="border:0;" title="Bande-annonce" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# ══════════════════════ MODAL SUPPRESSION ══════════════════════ #}
+<div id="modal-overlay" class="m-modal-overlay">
+  <div class="m-modal">
+    <h3 style="margin:0 0 8px 0;font-size:19px;">Confirmer la suppression</h3>
+    <p style="color:var(--muted);margin:0 0 20px 0;font-size:14px;">Voulez-vous vraiment supprimer ce film ? Cette action est <strong style="color:var(--danger);">irréversible</strong>.</p>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button id="modal-cancel" class="m-btn m-btn-ghost" style="flex:1;">Annuler</button>
+      <button id="modal-confirm" class="m-btn m-btn-danger" style="flex:1;">Supprimer</button>
+    </div>
+  </div>
+</div>
+
+{# ══════════════════════ MODAL BOX ══════════════════════ #}
+<div id="box-modal-overlay" class="m-modal-overlay">
+  <div class="m-modal">
+    <h3 id="box-modal-title" style="margin:0 0 8px 0;font-size:18px;font-weight:800;">Film ajouté !</h3>
+    <p id="box-modal-text" style="color:var(--muted);margin:0 0 20px 0;font-size:14px;">Le film a été ajouté à votre box.</p>
+    <button id="box-modal-ok" class="m-btn m-btn-indigo m-btn-block">OK</button>
   </div>
 </div>
 
 <script>
 (function(){
+  /* ── Notation interactive ── */
   const starsWidget = document.getElementById('interactive-stars');
   const topFill = document.getElementById('interactive-top');
   const noteInput = document.getElementById('note-input');
@@ -242,6 +360,12 @@
       const val = valueFromX(e.clientX - rect.left, starsWidget);
       topFill.style.width = pctFromValue(val) + '%';
     });
+    starsWidget.addEventListener('touchmove', function(e){
+      const t = e.touches[0];
+      const rect = starsWidget.getBoundingClientRect();
+      const val = valueFromX(t.clientX - rect.left, starsWidget);
+      topFill.style.width = pctFromValue(val) + '%';
+    }, {passive:true});
     starsWidget.addEventListener('mouseleave', function(){
       const v = parseFloat(noteInput.value);
       if (!isNaN(v)) topFill.style.width = pctFromValue(v) + '%';
@@ -250,6 +374,12 @@
     starsWidget.addEventListener('click', function(e){
       const rect = starsWidget.getBoundingClientRect();
       const val = valueFromX(e.clientX - rect.left, starsWidget);
+      updateDisplay(val);
+    });
+    starsWidget.addEventListener('touchend', function(e){
+      const t = e.changedTouches[0];
+      const rect = starsWidget.getBoundingClientRect();
+      const val = valueFromX(t.clientX - rect.left, starsWidget);
       updateDisplay(val);
     });
 
@@ -321,12 +451,10 @@
     });
   }
 
-  const prenomInput = document.getElementById('prenom');
   function checkEnable(){
-    if ((prenomInput && prenomInput.value.trim()) && noteInput.value) submitBtn.disabled = false;
+    if (noteInput.value) submitBtn.disabled = false;
     else submitBtn.disabled = true;
   }
-  if (prenomInput) prenomInput.addEventListener('input', checkEnable);
   if (noteInput) noteInput.addEventListener('change', checkEnable);
 
   (function initFromServer(){
@@ -339,20 +467,71 @@
     } catch(e){}
   })();
 
-  (function preventBack() {
-    try {
-      history.pushState(null, document.title, location.href);
-      window.addEventListener('popstate', function (event) {
-        history.pushState(null, document.title, location.href);
-        const el = document.getElementById('delete-msg');
-        if (el) {
-          el.textContent = 'Navigation arrière désactivée sur cette page.';
-          setTimeout(()=> el.textContent = 'Attention : suppression irréversible.', 2200);
-        }
-      });
-    } catch (e) {}
-  })();
+  /* ── Synopsis expandable ── */
+  const resume = document.getElementById('m-resume');
+  const expandBtn = document.getElementById('m-expand-btn');
+  if (resume && expandBtn) {
+    const clamp = () => {
+      const clamped = resume.scrollHeight > resume.clientHeight + 8;
+      if (clamped) {
+        resume.classList.add('clamped');
+        expandBtn.textContent = 'Lire la suite';
+        expandBtn.style.display = 'inline-block';
+      } else {
+        expandBtn.style.display = 'none';
+      }
+    };
+    requestAnimationFrame(clamp);
+    expandBtn.addEventListener('click', function(){
+      const isClamped = resume.classList.toggle('clamped');
+      expandBtn.textContent = isClamped ? 'Lire la suite' : 'Réduire';
+    });
+  }
 
+  /* ── Barre basse mobile ── */
+  const bottomBar = document.getElementById('m-bottom-bar');
+  if (bottomBar) {
+    let shown = false;
+    function maybeShow(){
+      const pastHero = window.scrollY > 160;
+      if (pastHero && !shown) { bottomBar.classList.add('show'); shown = true; }
+      else if (!pastHero && shown) { bottomBar.classList.remove('show'); shown = false; }
+    }
+    window.addEventListener('scroll', maybeShow, {passive:true});
+    window.addEventListener('resize', maybeShow);
+    maybeShow();
+  }
+  const rateBtn = document.getElementById('m-rate-btn');
+  if (rateBtn) {
+    rateBtn.addEventListener('click', function(){
+      const anchor = document.getElementById('rating-anchor');
+      if (anchor) anchor.scrollIntoView({behavior:'smooth', block:'start'});
+    });
+  }
+
+  /* ── Trailer (tous les boutons) ── */
+  const trailerModal = document.getElementById('trailer-modal');
+  const trailerIframe = document.getElementById('trailer-iframe');
+  const trailerClose = document.getElementById('trailer-close');
+  function openTrailer(){
+    if (!trailerModal || !trailerIframe) return;
+    trailerIframe.src = 'https://www.youtube-nocookie.com/embed/{{ film["trailer"] }}?autoplay=1&rel=0';
+    trailerModal.style.display = 'flex';
+  }
+  function closeTrailer(){
+    if (!trailerModal) return;
+    trailerModal.style.display = 'none';
+    if (trailerIframe) trailerIframe.src = '';
+  }
+  document.querySelectorAll('.js-trailer-open').forEach(function(b){
+    b.addEventListener('click', openTrailer);
+  });
+  trailerClose?.addEventListener('click', closeTrailer);
+  if (trailerModal) trailerModal.addEventListener('click', function(e){
+    if (e.target === trailerModal) closeTrailer();
+  });
+
+  /* ── Delete modal ── */
   const deleteBtn = document.getElementById('delete-btn');
   const deleteForm = document.getElementById('delete-form');
   const modalOverlay = document.getElementById('modal-overlay');
@@ -360,27 +539,68 @@
   const modalConfirm = document.getElementById('modal-confirm');
 
   if (deleteBtn && modalOverlay) {
-    deleteBtn.addEventListener('click', function(){
-      modalOverlay.style.display = 'flex';
+    deleteBtn.addEventListener('click', function(){ modalOverlay.style.display = 'flex'; });
+    modalCancel.addEventListener('click', function(){ modalOverlay.style.display = 'none'; });
+    modalOverlay.addEventListener('click', function(e){ if (e.target === modalOverlay) modalOverlay.style.display = 'none'; });
+    modalConfirm.addEventListener('click', function(){ deleteForm.submit(); });
+  }
+
+  /* ── Box / Top toggles ── */
+  const addBtn = document.getElementById('add-to-box-btn');
+  const addForm = document.getElementById('add-to-box-form');
+  if (addBtn && addForm) {
+    addBtn.addEventListener('click', function(){
+      addForm.style.display = addForm.style.display === 'none' || addForm.style.display === '' ? 'block' : 'none';
     });
-    modalCancel.addEventListener('click', function(){
-      modalOverlay.style.display = 'none';
-    });
-    modalOverlay.addEventListener('click', function(e){
-      if (e.target === modalOverlay) modalOverlay.style.display = 'none';
-    });
-    modalConfirm.addEventListener('click', function(){
-      deleteForm.submit();
+  }
+  document.getElementById('box-modal-ok')?.addEventListener('click', function(){
+    document.getElementById('box-modal-overlay').style.display = 'none';
+  });
+  document.getElementById('box-modal-overlay')?.addEventListener('click', function(e){
+    if (e.target === this) this.style.display = 'none';
+  });
+
+  const boxForm = document.getElementById('box-add-form');
+  const boxSelect = document.getElementById('box-select');
+  const boxHidden = document.getElementById('selected-box-id');
+  if (boxSelect && boxHidden) {
+    boxSelect.addEventListener('change', function(){ boxHidden.value = this.value; });
+  }
+  if (boxForm) {
+    boxForm.addEventListener('submit', function(e){
+      e.preventDefault();
+      const fd = new FormData(boxForm);
+      const boxId = boxHidden.value;
+      if (!boxId) return;
+      fd.set('box_id', boxId);
+      fetch('{{ url_for("box.box_add_film", box_id=0) }}'.replace('/0/', '/' + boxId + '/'), {
+        method: 'POST',
+        headers: {'X-CSRFToken': fd.get('csrf_token')},
+        body: fd,
+        credentials: 'same-origin'
+      }).then(r => r.json()).then(data => {
+        const boxModal = document.getElementById('box-modal-overlay');
+        const boxTitle = document.getElementById('box-modal-title');
+        const boxText = document.getElementById('box-modal-text');
+        if (data.status === 'ok') {
+          if (boxModal) boxModal.style.display = 'flex';
+          if (boxTitle) boxTitle.textContent = 'Film ajouté !';
+          if (boxText) boxText.textContent = 'Le film a été ajouté à votre box.';
+          addForm.style.display = 'none';
+        } else {
+          if (boxModal) boxModal.style.display = 'flex';
+          if (boxTitle) boxTitle.textContent = 'Erreur';
+          if (boxText) boxText.textContent = data.error || 'Une erreur est survenue.';
+        }
+      }).catch(() => { boxForm.submit(); });
     });
   }
 
-  const authToggle = document.getElementById('auth-toggle');
-  const authForm = document.getElementById('auth-form');
-  if (authToggle && authForm) {
-    authToggle.addEventListener('click', function(){
-      const hidden = authForm.style.display === 'none' || authForm.style.display === '';
-      authForm.style.display = hidden ? 'block' : 'none';
-      authToggle.textContent = hidden ? 'Fermer' : 'Authentification';
+  const topBtn = document.getElementById('add-to-top-btn');
+  const topForm = document.getElementById('add-to-top-form');
+  if (topBtn && topForm) {
+    topBtn.addEventListener('click', function(){
+      topForm.style.display = topForm.style.display === 'none' || topForm.style.display === '' ? 'block' : 'none';
     });
   }
 })();

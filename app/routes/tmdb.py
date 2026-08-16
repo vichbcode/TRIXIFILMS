@@ -4,7 +4,7 @@ from flask import (
 from flask_login import login_required
 
 from app.models import db, Film, Actor
-from app.utils import process_image_from_url
+from app.cloud import upload_image_url
 
 tmdb_bp = Blueprint("tmdb", __name__)
 
@@ -82,7 +82,7 @@ def tmdb_import(tmdb_id):
         pass
 
     poster_url = ("https://image.tmdb.org/t/p/w500" + data["poster_path"]) if data.get("poster_path") else None
-    img_data = process_image_from_url(poster_url) if poster_url else None
+    img_url = upload_image_url(poster_url) if poster_url else None
 
     film = Film(
         nom=title,
@@ -92,9 +92,8 @@ def tmdb_import(tmdb_id):
         productions=productions,
         source="tmdb"
     )
-    if img_data:
-        film.image_data = img_data["data"]
-        film.image_mime = img_data["mime"]
+    if img_url:
+        film.image = img_url
     db.session.add(film)
     db.session.flush()
 
@@ -105,13 +104,27 @@ def tmdb_import(tmdb_id):
             if not name:
                 continue
             profile_url = ("https://image.tmdb.org/t/p/w200" + c["profile_path"]) if c.get("profile_path") else None
-            img_data = process_image_from_url(profile_url) if profile_url else None
+            ac_img = upload_image_url(profile_url) if profile_url else None
             role = c.get("character") or "Acteur"
             actor = Actor(film_id=film.id, nom=name, role=role[:100])
-            if img_data:
-                actor.image_data = img_data["data"]
-                actor.image_mime = img_data["mime"]
+            if ac_img:
+                actor.image = ac_img
             db.session.add(actor)
+    except Exception:
+        pass
+
+    try:
+        rv = requests.get(
+            f"https://api.themoviedb.org/3/movie/{tmdb_id}/videos",
+            params={"api_key": api_key, "language": "fr-FR"}, timeout=10
+        )
+        rv.raise_for_status()
+        vids = rv.json().get("results", [])
+        trailers = [v for v in vids if v.get("site") == "YouTube" and v.get("type") == "Trailer"]
+        if not trailers:
+            trailers = [v for v in vids if v.get("site") == "YouTube"]
+        if trailers:
+            film.trailer = (trailers[0].get("key") or "")[:100]
     except Exception:
         pass
 

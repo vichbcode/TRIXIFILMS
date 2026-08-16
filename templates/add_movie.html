@@ -1,69 +1,107 @@
 {% extends "base.html" %}
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <div class="max-w-3xl mx-auto bg-gray-800 p-4 sm:p-6 rounded shadow">
-    <h2 class="text-xl sm:text-2xl mb-4">Ajouter un film</h2>
-    <form id="add-movie-form" method="post" enctype="multipart/form-data" novalidate>
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="max-w-3xl mx-auto" style="padding:0 4px;">
+  <h2 class="text-lg font-bold mb-4" style="color:var(--text);">Ajouter un film</h2>
+  <form id="add-movie-form" method="post" enctype="multipart/form-data" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-      <div class="mb-3">
-        <label class="block mb-1 text-sm sm:text-base">Nom du film *</label>
-        <input name="nom" required class="w-full p-3 rounded text-black" />
+    <div class="mb-3">
+      <label class="block mb-1 text-sm font-semibold" style="color:var(--text);">Nom du film *</label>
+      <input name="nom" required class="w-full p-3 rounded text-black" placeholder="Titre du film" />
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+      <div>
+        <label class="block mb-1 text-sm font-semibold" style="color:var(--text);">Titre original</label>
+        <input name="titre_original" class="w-full p-3 rounded text-black" placeholder="Titre original" />
       </div>
-
-      <div class="mb-3">
-        <label class="block mb-1 text-sm sm:text-base">Résumé</label>
-        <textarea name="resume" class="w-full p-3 rounded text-black" rows="4"></textarea>
+      <div>
+        <label class="block mb-1 text-sm font-semibold" style="color:var(--text);">Langue originale</label>
+        <input name="langue_originale" class="w-full p-3 rounded text-black" placeholder="Ex : Anglais" />
       </div>
+    </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label class="block mb-1 text-sm sm:text-base">Réalisateurs</label>
-          <input name="realisateurs" class="w-full p-3 rounded text-black" />
+    <div class="mb-3">
+      <label class="block mb-1 text-sm font-semibold" style="color:var(--text);">Résumé</label>
+      <textarea name="resume" class="w-full p-3 rounded text-black" rows="4" placeholder="Synopsis..."></textarea>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+      <div>
+        <label class="block mb-1 text-sm font-semibold" style="color:var(--text);">Réalisateurs</label>
+        <input name="realisateurs" class="w-full p-3 rounded text-black" placeholder="Nom du réalisateur" />
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-semibold" style="color:var(--text);">Scénaristes</label>
+        <input name="scenaristes" class="w-full p-3 rounded text-black" placeholder="Nom du scénariste" />
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+      <div>
+        <label class="block mb-1 text-sm font-semibold" style="color:var(--text);">Catégorie</label>
+        <select name="categorie" class="w-full p-3 rounded text-black">
+          <option value="">-- Genre --</option>
+          {% for cat in ['Action','Aventure','Comédie','Comédie dramatique','Drame','Horreur','Thriller','Science-Fiction','Fantastique','Animation','Documentaire','Policier','Romance','Guerre','Western','Musical','Biopic','Historique','Espionnage','Catastrophe','Famille','Fantasy','Mystère','Sport','Érotique'] %}
+          <option value="{{ cat }}">{{ cat }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-semibold" style="color:var(--text);">Origine</label>
+        <select name="origine" class="w-full p-3 rounded text-black">
+          <option value="">-- Pays --</option>
+          {% for orig in ['Américaine','Française','Britannique','Allemande','Italienne','Espagnole','Japonaise','Coréenne','Chinoise','Indienne','Russe','Australienne','Canadienne','Suédoise','Danoise','Norvégienne','Belge','Suisse','Brésilienne','Mexicaine','Néerlandaise','Turque','Iranienne','Israélienne','Polonaise','Autre'] %}
+          <option value="{{ orig }}">{{ orig }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block mb-1 text-sm font-semibold" style="color:var(--text);">Production</label>
+        <input name="productions" class="w-full p-3 rounded text-black" placeholder="Studio / Production" />
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label class="block mb-1 text-sm font-semibold" style="color:var(--text);">Bande-annonce (YouTube)</label>
+      <input name="trailer" class="w-full p-3 rounded text-black" placeholder="Colle le lien YouTube de la bande-annonce" />
+      <p class="text-xs mt-1" style="color:var(--muted);">Tu peux coller un lien (youtube.com/watch, youtu.be, shorts) — rien à télécharger, on diffuse le lien.</p>
+    </div>
+
+    <div class="mb-3">
+      <label class="block mb-1 text-sm font-semibold" style="color:var(--text);">Affiche du film</label>
+      <div class="flex items-center gap-3">
+        <input type="file" name="image_film" accept="image/*" class="text-sm" style="color:var(--muted);" />
+      </div>
+    </div>
+
+    <hr class="my-4" style="border-color:rgba(255,255,255,0.06);">
+
+    <h3 class="text-base font-bold mb-2" style="color:var(--text);">Distribution / Équipe *</h3>
+    <p class="text-xs mb-3" style="color:var(--muted);">Ajoute au moins un acteur ou membre de l'équipe.</p>
+
+    <div id="actors_container" class="space-y-3">
+      <div class="actor_row flex flex-col sm:flex-row gap-2 p-3 rounded-lg" style="background:var(--card);border:1px solid rgba(255,255,255,0.06);">
+        <input name="actor_name[]" placeholder="Nom complet" class="p-3 rounded text-black flex-1 w-full" required />
+        <select name="actor_role[]" class="p-3 rounded text-black w-full sm:w-auto">
+          <option>Acteur</option>
+          <option>Réalisateur</option>
+          <option>Scénariste</option>
+        </select>
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <label class="text-xs" style="color:var(--muted);">Photo:</label>
+          <input type="file" name="actor_image[]" accept="image/*" class="text-xs flex-1" style="color:var(--muted);" />
+          <button type="button" class="remove_btn hidden text-sm px-2 py-1" style="color:var(--danger);">Suppr</button>
         </div>
-        <div>
-          <label class="block mb-1 text-sm sm:text-base">Scénaristes</label>
-          <input name="scenaristes" class="w-full p-3 rounded text-black" />
-        </div>
       </div>
+    </div>
 
-      <div class="mb-3 mt-3">
-        <label class="block mb-1 text-sm sm:text-base">Productions</label>
-        <input name="productions" class="w-full p-3 rounded text-black" />
-      </div>
-
-      <div class="mb-3">
-        <label class="block mb-1 text-sm sm:text-base">Image du film</label>
-        <input type="file" name="image_film" accept="image/*" class="text-sm w-full" />
-      </div>
-
-      <hr class="my-4 border-gray-700">
-
-      <h3 class="text-lg sm:text-xl mb-2">Distribution / Équipe *</h3>
-      <p class="text-xs sm:text-sm text-gray-400 mb-2">Ajoute au moins une personne.</p>
-
-      <div id="actors_container" class="space-y-3">
-        <div class="actor_row flex flex-col sm:flex-row gap-2 p-3 bg-gray-850 rounded-lg border border-gray-700">
-          <input name="actor_name[]" placeholder="Nom complet" class="p-3 rounded text-black flex-1 w-full" required />
-          <select name="actor_role[]" class="p-3 rounded text-black w-full sm:w-auto">
-            <option>Acteur</option>
-            <option>Réalisateur</option>
-            <option>Scénariste</option>
-          </select>
-          <div class="flex items-center gap-2 w-full sm:w-auto">
-            <label class="text-xs text-gray-400 whitespace-nowrap">Photo:</label>
-            <input type="file" name="actor_image[]" accept="image/*" class="text-xs flex-1" />
-            <button type="button" class="remove_btn hidden text-red-400 text-sm whitespace-nowrap">Suppr</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="mt-4 flex flex-col sm:flex-row gap-2">
-        <button type="button" id="add_actor" class="bg-gray-700 px-4 py-3 rounded touch-target text-sm">+ Ajouter une personne</button>
-        <button type="submit" class="bg-red-400 px-4 py-3 rounded touch-target text-sm">Enregistrer</button>
-      </div>
-    </form>
-  </div>
+    <div class="mt-4 flex flex-col sm:flex-row gap-2">
+      <button type="button" id="add_actor" class="px-4 py-3 rounded text-sm touch-target" style="background:var(--card);color:var(--text);border:1px solid rgba(255,255,255,0.06);">+ Ajouter</button>
+      <button type="submit" class="px-4 py-3 rounded text-sm touch-target" style="background:var(--accent);color:#fff;font-weight:700;">Enregistrer</button>
+    </div>
+  </form>
+</div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -72,7 +110,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function createActorRow() {
     const row = document.createElement('div');
-    row.className = 'actor_row flex flex-col sm:flex-row gap-2 p-3 bg-gray-850 rounded-lg border border-gray-700';
+    row.className = 'actor_row flex flex-col sm:flex-row gap-2 p-3 rounded-lg';
+    row.style.cssText = 'background:var(--card);border:1px solid rgba(255,255,255,0.06);';
 
     const inName = document.createElement('input');
     inName.name = 'actor_name[]';
@@ -93,17 +132,20 @@ document.addEventListener('DOMContentLoaded', function () {
     const fileWrap = document.createElement('div');
     fileWrap.className = 'flex items-center gap-2 w-full sm:w-auto';
     const label = document.createElement('span');
-    label.className = 'text-xs text-gray-400 whitespace-nowrap';
+    label.className = 'text-xs';
+    label.style.cssText = 'color:var(--muted);';
     label.textContent = 'Photo:';
     const file = document.createElement('input');
     file.type = 'file';
     file.name = 'actor_image[]';
     file.accept = 'image/*';
     file.className = 'text-xs flex-1';
+    file.style.cssText = 'color:var(--muted);';
 
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'text-red-400 text-sm whitespace-nowrap px-2 py-1';
+    btn.className = 'text-sm px-2 py-1';
+    btn.style.cssText = 'color:var(--danger);';
     btn.textContent = 'Suppr';
     btn.addEventListener('click', () => row.remove());
 

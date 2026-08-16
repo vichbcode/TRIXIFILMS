@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width:960px;margin:0 auto;">
+  <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:24px;">
+    <div>
+      <h2 style="margin:0;font-size:22px;font-weight:800;letter-spacing:-0.3px;">Box</h2>
+      <p style="margin:4px 0 0 0;color:var(--muted);font-size:13px;">Playlists publiques partagées par la communauté</p>
+    </div>
+    <div style="display:flex;gap:8px;">
+      {% if current_user.is_authenticated %}
+      <a href="{{ url_for('box.my_boxs') }}" class="btn btn-ghost btn-sm">Mes Box</a>
+      <a href="{{ url_for('box.box_new') }}" class="btn btn-primary btn-sm">+ Nouvelle Box</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <form method="get" action="{{ url_for('box.box_list') }}" id="box-search-form" style="display:flex;gap:8px;margin-bottom:24px;">
+    <input name="q" value="{{ query }}" placeholder="Rechercher une box par nom, description..." class="search-input" id="box-search-input" style="flex:1;" autocomplete="off" />
+    <button type="submit" class="search-btn">OK</button>
+  </form>
+
+  <div id="box-results">
+  {% if boxs %}
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+    {% for box in boxs %}
+    <a href="{{ url_for('box.box_view', box_id=box.id) }}" style="display:block;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;transition:all .15s;text-decoration:none;"
+       onmouseover="this.style.borderColor='rgba(217,65,62,0.3)';this.style.transform='translateY(-2px)'"
+       onmouseout="this.style.borderColor='var(--border)';this.style.transform='translateY(0)'">
+      <div style="display:flex;align-items:flex-start;gap:12px;">
+
+        <div style="min-width:0;flex:1;">
+          <h3 style="margin:0 0 4px 0;font-size:15px;font-weight:700;color:var(--text);">{{ box.nom }}</h3>
+          {% if box.description %}
+          <p style="color:var(--muted);font-size:12px;margin:0 0 8px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ box.description }}</p>
+          {% endif %}
+          <div style="display:flex;gap:12px;font-size:11px;color:var(--muted);">
+            <span>Par <strong style="color:var(--text-secondary);">{{ box.owner.prenom }}</strong></span>
+            <span>•</span>
+            <span>{{ box.films|length }} film{% if box.films|length != 1 %}s{% endif %}</span>
+            <span>•</span>
+            <span>{{ box.created_at.strftime('%d/%m/%Y') if box.created_at else '' }}</span>
+          </div>
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+
+  {% if total_pages > 1 %}
+  <nav style="display:flex;align-items:center;gap:12px;justify-content:center;margin-top:24px;">
+    {% if page > 1 %}
+    <a href="{{ url_for('box.box_list', q=query, page=page-1) }}" class="btn btn-ghost btn-sm">&laquo; Précédent</a>
+    {% endif %}
+    <span style="color:var(--muted);font-size:13px;">Page {{ page }} / {{ total_pages }}</span>
+    {% if page < total_pages %}
+    <a href="{{ url_for('box.box_list', q=query, page=page+1) }}" class="btn btn-ghost btn-sm">Suivant &raquo;</a>
+    {% endif %}
+  </nav>
+  {% endif %}
+
+  {% else %}
+  <div style="text-align:center;padding:60px 16px;">
+    {% if query %}
+    <p style="color:var(--muted);font-size:15px;">Aucune box pour "{{ query }}"</p>
+    {% else %}
+    <p style="color:var(--muted);font-size:15px;margin:0 0 4px 0;">Aucune box publique pour le moment.</p>
+    <p style="color:var(--muted);font-size:13px;margin:0;">Soyez le premier à en créer une !</p>
+    {% if current_user.is_authenticated %}
+    <a href="{{ url_for('box.box_new') }}" class="btn btn-primary" style="margin-top:16px;display:inline-flex;">Créer une box</a>
+    {% endif %}
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  const input = document.getElementById('box-search-input');
+  const form = document.getElementById('box-search-form');
+  let timer;
+  if (input && form) {
+    input.addEventListener('input', function(){
+      clearTimeout(timer);
+      timer = setTimeout(function(){ form.submit(); }, 400);
+    });
+  }
+})();
+</script>
+{% endblock %}

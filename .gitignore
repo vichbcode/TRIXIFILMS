@@ -19,6 +19,7 @@ logs/
 # Data
 *.xlsx.backup.*
 *.db
+*.sqlite
 
 # IDE
 .vscode/
@@ -34,3 +35,4 @@ Thumbs.db
 # Project specific
 data/uploads/*
 !data/uploads/.gitkeep
+_dbg.py

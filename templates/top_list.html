@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <h2 class="text-xl sm:text-2xl font-bold mb-6">Classement des meilleurs films</h2>
+
+  <div class="space-y-2">
+    {% for pos in range(1, 21) %}
+    {% set film = top_films | selectattr('top_position', 'equalto', pos) | first %}
+    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 flex items-center gap-4">
+      <div class="flex-shrink-0 w-10 h-10 rounded-full bg-red-400 flex items-center justify-center font-bold text-lg {% if pos == 1 %}bg-yellow-500{% elif pos == 2 %}bg-gray-400{% elif pos == 3 %}bg-amber-700{% endif %}">
+        {{ pos }}
+      </div>
+
+      {% if film %}
+      <div class="flex-1 flex items-center gap-3 min-w-0">
+        {% if film['image'] %}
+        <img src="{{ film['image'] }}" class="w-12 h-16 object-cover rounded flex-shrink-0" alt="">
+        {% endif %}
+        <div class="min-w-0">
+          <a href="{{ url_for('main.film_detail', film_id=film['id']) }}" class="text-white font-semibold hover:text-red-400">
+            {{ film['nom'] }}
+          </a>
+          <div class="text-xs text-gray-400">
+            {% if film.get('categorie') %}{{ film['categorie'] }}{% endif %}
+            {% if film.get('categorie') and film.get('origine') %} &middot; {% endif %}
+            {% if film.get('origine') %}{{ film['origine'] }}{% endif %}
+            {% if film.get('avg_rating') %}
+            &middot; {{ film['avg_rating'] }}/5 ({{ film['votes'] }})
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="flex gap-2 flex-shrink-0">
+        {% if current_user.is_authenticated %}
+        <form method="post" action="{{ url_for('top.top_remove', film_id=film['id']) }}" class="inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded text-sm touch-target">&times;</button>
+        </form>
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="flex-1 text-gray-500 text-sm">Vide</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+{% endblock %}

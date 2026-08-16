@@ -27,6 +27,10 @@ class Config:
     SESSION_COOKIE_SAMESITE = "Lax"
     PERMANENT_SESSION_LIFETIME = timedelta(days=7)
     TMDB_API_KEY = os.environ.get("TMDB_API_KEY", "").strip()
+    CLOUDINARY_CLOUD_NAME = os.environ.get("CLOUDINARY_CLOUD_NAME", "").strip()
+    CLOUDINARY_API_KEY = os.environ.get("CLOUDINARY_API_KEY", "").strip()
+    CLOUDINARY_API_SECRET = os.environ.get("CLOUDINARY_API_SECRET", "").strip()
+    CLOUDINARY_FOLDER = os.environ.get("CLOUDINARY_FOLDER", "trixifilms").strip()
     ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
     MAX_IMAGE_BYTES = 8 * 1024 * 1024
     MAX_PIXEL_COUNT = 6000 * 6000

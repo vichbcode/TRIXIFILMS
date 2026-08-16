@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width:960px;margin:0 auto;">
+  <div style="display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:24px;">
+    <div>
+      <h2 style="margin:0;font-size:22px;font-weight:800;letter-spacing:-0.3px;">{{ box.nom }}</h2>
+      {% if box.description %}
+      <p style="color:var(--muted);margin:6px 0 0 0;font-size:14px;">{{ box.description }}</p>
+      {% endif %}
+      <div style="display:flex;gap:10px;font-size:12px;color:var(--muted);margin-top:8px;">
+        <span>Par <strong style="color:var(--text-secondary);">{{ box.owner.prenom }}</strong></span>
+        <span>•</span>
+        <span>{{ box.films|length }} film{% if box.films|length != 1 %}s{% endif %}</span>
+        <span>•</span>
+        {% if box.is_public %}<span style="color:var(--success);">Publique</span>{% else %}<span style="color:#eab308;">Privée</span>{% endif %}
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      {% if current_user.is_authenticated and box.user_id == current_user.id %}
+      <a href="{{ url_for('box.box_edit', box_id=box.id) }}" class="btn btn-ghost btn-sm">Modifier</a>
+      <button type="button" id="box-delete-btn" class="btn btn-danger btn-sm">Supprimer</button>
+      {% endif %}
+      <a href="{{ url_for('box.box_list') }}" class="btn btn-ghost btn-sm">Retour</a>
+    </div>
+  </div>
+
+  {% if films %}
+  <div class="film-grid">
+    {% for film in films %}
+    <a href="{{ url_for('main.film_detail', film_id=film['id']) }}" style="display:block;">
+      <div class="film-card">
+        <div class="film-poster">
+          {% if film['image'] %}
+          <img src="{{ film['image'] }}" alt="{{ film['nom'] }}">
+          {% else %}
+          <div class="placeholder">Pas d'image</div>
+          {% endif %}
+        </div>
+        <div class="film-title">{{ film['nom'] }}</div>
+        {% if current_user.is_authenticated and box.user_id == current_user.id %}
+        <form method="post" action="{{ url_for('box.box_remove_film', box_id=box.id, film_id=film['id']) }}" class="js-remove-form" style="text-align:center;margin-top:6px;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="button" class="btn btn-danger btn-sm js-remove-btn" data-film-name="{{ film['nom'] }}" style="font-size:11px;padding:4px 12px;">Retirer</button>
+        </form>
+        {% endif %}
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:60px 16px;">
+    <p style="color:var(--muted);font-size:15px;margin:0 0 4px 0;">Aucun film dans cette box.</p>
+    {% if current_user.is_authenticated and box.user_id == current_user.id %}
+    <p style="color:var(--muted);font-size:13px;margin:0 0 16px 0;">Ajoutez des films depuis leur page de détail.</p>
+    <a href="{{ url_for('main.index') }}" class="btn btn-primary" style="display:inline-flex;">Parcourir les films</a>
+    {% endif %}
+  </div>
+{% endif %}
+  </div>
+</div>
+
+<div id="box-delete-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:#1a202c;border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:28px;max-width:400px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,0.8);text-align:center;">
+    <h3 style="margin:0 0 8px 0;font-size:20px;">Supprimer cette box ?</h3>
+    <p style="color:var(--muted);margin:0 0 20px 0;font-size:15px;">Voulez-vous vraiment supprimer <strong>{{ box.nom }}</strong> ? Cette action est <strong style="color:var(--danger);">irréversible</strong>.</p>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button id="box-del-cancel" class="btn btn-ghost">Annuler</button>
+      <form id="box-del-form" method="post" action="{{ url_for('box.box_delete', box_id=box.id) }}" style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-danger">Supprimer</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="box-remove-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:#1a202c;border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:28px;max-width:400px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,0.8);text-align:center;">
+    <h3 style="margin:0 0 8px 0;font-size:20px;">Retirer ce film ?</h3>
+    <p style="color:var(--muted);margin:0 0 20px 0;font-size:15px;">Voulez-vous vraiment retirer <strong id="box-remove-film-name"></strong> de cette box ?</p>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button id="box-remove-cancel" class="btn btn-ghost">Annuler</button>
+      <button id="box-remove-confirm" class="btn btn-danger">Retirer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const deleteBtn = document.getElementById('box-delete-btn');
+  const modal = document.getElementById('box-delete-modal');
+  const cancelBtn = document.getElementById('box-del-cancel');
+  if (deleteBtn && modal) {
+    deleteBtn.addEventListener('click', function(){ modal.style.display = 'flex'; });
+    cancelBtn.addEventListener('click', function(){ modal.style.display = 'none'; });
+    modal.addEventListener('click', function(e){ if (e.target === modal) modal.style.display = 'none'; });
+  }
+
+  const removeModal = document.getElementById('box-remove-modal');
+  const removeName = document.getElementById('box-remove-film-name');
+  const removeCancel = document.getElementById('box-remove-cancel');
+  const removeConfirm = document.getElementById('box-remove-confirm');
+  let currentRemoveForm = null;
+  document.querySelectorAll('.js-remove-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      currentRemoveForm = btn.closest('.js-remove-form');
+      if (removeName) removeName.textContent = btn.getAttribute('data-film-name') || '';
+      if (removeModal) removeModal.style.display = 'flex';
+    });
+  });
+  if (removeCancel) removeCancel.addEventListener('click', function(){ removeModal.style.display = 'none'; });
+  if (removeConfirm && removeModal) {
+    removeConfirm.addEventListener('click', function(){
+      if (currentRemoveForm) currentRemoveForm.submit();
+    });
+    removeModal.addEventListener('click', function(e){ if (e.target === removeModal) removeModal.style.display = 'none'; });
+  }
+})();
+</script>
+{% endblock %}

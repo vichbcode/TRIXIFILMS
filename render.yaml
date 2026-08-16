@@ -1,0 +1,40 @@
+# Render Blueprint — déploiement TRIXIFILMS
+# 1. Pousse ce dossier dans un dépôt GitHub.
+# 2. Sur render.com : New -> Blueprint -> connecte le dépôt.
+# 3. Après le premier déploiement, renseigne les secrets (sync: false)
+#    dans le dashboard Render (Env tab du service).
+#
+# Plan gratuit : l'instance se met en veille après 15 min d'inactivité.
+# UptimeRobot (moniteur toutes les 5 min sur /healthz) l'empêche de se rendormir.
+
+services:
+  - type: web
+    name: TRIXIFILMS
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 120
+    healthCheckPath: /healthz
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_DEBUG
+        value: "0"
+      - key: FLASK_SECRET
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: CLOUDINARY_FOLDER
+        value: trixifilms
+      - key: ADMIN_PRENOM
+        sync: false
+      - key: ADMIN_PASS
+        sync: false

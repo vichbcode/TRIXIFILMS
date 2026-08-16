@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='shorts.css') }}">
+
+<div id="shorts-overlay">
+  {% if shorts %}
+  <div id="shorts-feed">
+    {% for s in shorts %}
+    <section class="short-slide" data-id="{{ s.id }}" data-trailer="{{ s.trailer }}">
+      <div class="short-player" id="yt-{{ s.id }}"></div>
+      <a class="short-info" href="{{ url_for('main.film_detail', film_id=s.id) }}">
+        <h2>{{ s.nom }}</h2>
+        <span class="short-see">Voir le film &rarr;</span>
+      </a>
+    </section>
+    {% endfor %}
+  </div>
+  <div class="shorts-progress"><div id="shorts-progress-bar"></div></div>
+  <a class="shorts-close" href="{{ url_for('main.index') }}" aria-label="Fermer les bandes-annonces">&times;</a>
+  {% else %}
+  <div class="empty-state">
+    <p>Aucune bande-annonce disponible pour le moment.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if shorts %}
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+(function () {
+  var SLIDES = Array.prototype.slice.call(document.querySelectorAll('.short-slide'));
+  var bar = document.getElementById('shorts-progress-bar');
+  var players = {};
+  var currentId = null;
+  var timer = null;
+
+  function setBar(pct) {
+    if (bar) bar.style.width = (pct * 100) + '%';
+  }
+
+  function stopProgress() {
+    if (timer) { clearInterval(timer); timer = null; }
+  }
+
+  function onStateChange(e) {
+    var id = currentId;
+    if (e.target && e.target.getIframe && e.target.getIframe().id) {
+      id = e.target.getIframe().id.replace('yt-', '');
+    }
+    if (e.data === YT.PlayerState.PLAYING) {
+      stopProgress();
+      timer = setInterval(function () {
+        var p = players[id];
+        if (!p) return;
+        var d = p.getDuration();
+        var c = p.getCurrentTime();
+        if (d > 0) setBar(c / d);
+      }, 200);
+    } else if (e.data === YT.PlayerState.PAUSED) {
+      stopProgress();
+    } else if (e.data === YT.PlayerState.ENDED) {
+      stopProgress();
+      setBar(1);
+      var next = nextSlide(id);
+      if (next) {
+        scrollToSlide(next);
+      } else {
+        setTimeout(function () { setBar(0); }, 600);
+      }
+    }
+  }
+
+  function nextSlide(id) {
+    for (var i = 0; i < SLIDES.length; i++) {
+      if (SLIDES[i].dataset.id === id && i + 1 < SLIDES.length) return SLIDES[i + 1];
+    }
+    return null;
+  }
+
+  function scrollToSlide(slide) {
+    slide.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function activate(slide) {
+    var id = slide.dataset.id;
+    if (id === currentId) return;
+    currentId = id;
+    setBar(0);
+    Object.keys(players).forEach(function (k) {
+      if (k !== id && players[k].pauseVideo) players[k].pauseVideo();
+    });
+    var p = players[id];
+    if (p && p.playVideo) p.playVideo();
+  }
+
+  window.onYouTubeIframeAPIReady = function () {
+    SLIDES.forEach(function (slide) {
+      var id = slide.dataset.id;
+      players[id] = new YT.Player('yt-' + id, {
+        videoId: slide.dataset.trailer,
+        width: '100%',
+        height: '100%',
+        playerVars: {
+          autoplay: 0,
+          mute: 1,
+          controls: 1,
+          playsinline: 1,
+          rel: 0,
+          fs: 0,
+          iv_load_policy: 3,
+          modestbranding: 1,
+          origin: window.location.origin
+        },
+        events: { onStateChange: onStateChange }
+      });
+    });
+
+    if (!('IntersectionObserver' in window)) {
+      if (SLIDES.length) activate(SLIDES[0]);
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting) activate(en.target);
+      });
+    }, { threshold: 0.6 });
+    SLIDES.forEach(function (s) { io.observe(s); });
+  };
+
+  document.addEventListener('keydown', function (e) {
+    var feed = document.getElementById('shorts-feed');
+    if (!feed) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); feed.scrollBy({ top: feed.clientHeight, behavior: 'smooth' }); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); feed.scrollBy({ top: -feed.clientHeight, behavior: 'smooth' }); }
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}
