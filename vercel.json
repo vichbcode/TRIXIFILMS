@@ -2,6 +2,10 @@
   "installCommand": "pip install -r requirements.txt",
   "builds": [
     {
+      "src": "static/**",
+      "use": "@vercel/static"
+    },
+    {
       "src": "api/index.py",
       "use": "@vercel/python"
     }
