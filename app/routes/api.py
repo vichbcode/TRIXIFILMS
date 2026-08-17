@@ -129,6 +129,15 @@ def api_update_account():
     return jsonify({"prenom": prenom, "message": "Compte mis à jour."})
 
 
+@api_bp.route("/api/auth/account", methods=["DELETE"])
+@token_required
+def api_delete_account():
+    user = request.current_user
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({"message": "Compte supprimé."})
+
+
 # ─── Films ───────────────────────────────────────────────────────────
 
 @api_bp.route("/api/films", methods=["GET"])
@@ -429,8 +438,6 @@ def api_edit_film(film_id):
         return jsonify({"error": "Film introuvable."}), 404
     if (film.source or "").strip().lower() == "tmdb":
         return jsonify({"error": "Films TMDB non modifiables."}), 403
-    if not getattr(request.current_user, "is_admin", False):
-        return jsonify({"error": "Accès refusé : administrateur requis."}), 403
 
     title = _sanitize_str(request.form.get("nom", ""), 200)
     if not title:
