@@ -26,7 +26,9 @@ def _sanitize_str(val, maxlen=500):
     if not val:
         return ""
     s = str(val).strip()[:maxlen]
-    return s.replace("<", "").replace(">", "")
+    for ch in ('<', '>', '"', "'", ';', '&'):
+        s = s.replace(ch, '')
+    return s
 
 
 def _validate_pagination():
@@ -316,6 +318,7 @@ def _film_to_api(film):
         "categorie": film.categorie or "",
         "origine": film.origine or "",
         "source": film.source or "",
+        "trailer": film.trailer or "",
         "has_image": has_image,
         "image_url": film.image if has_image else None,
         "avg_rating": None,
@@ -375,13 +378,15 @@ def api_add_film():
     origine = _sanitize_str(request.form.get("origine", ""), 100)
     titre_original = _sanitize_str(request.form.get("titre_original", ""), 300)
     langue_originale = _sanitize_str(request.form.get("langue_originale", ""), 100)
+    trailer = _sanitize_str(request.form.get("trailer", ""), 300)
 
     film = Film(
         nom=title, resume=resume,
         realisateurs=realisateurs, scenaristes=scenaristes,
         productions=productions, categorie=categorie,
         origine=origine, titre_original=titre_original,
-        langue_originale=langue_originale, source=""
+        langue_originale=langue_originale, source="",
+        trailer=trailer,
     )
     db.session.add(film)
     db.session.flush()
@@ -424,6 +429,8 @@ def api_edit_film(film_id):
         return jsonify({"error": "Film introuvable."}), 404
     if (film.source or "").strip().lower() == "tmdb":
         return jsonify({"error": "Films TMDB non modifiables."}), 403
+    if not getattr(request.current_user, "is_admin", False):
+        return jsonify({"error": "Accès refusé : administrateur requis."}), 403
 
     title = _sanitize_str(request.form.get("nom", ""), 200)
     if not title:
@@ -438,6 +445,7 @@ def api_edit_film(film_id):
     film.origine = _sanitize_str(request.form.get("origine", ""), 100)
     film.titre_original = _sanitize_str(request.form.get("titre_original", ""), 300)
     film.langue_originale = _sanitize_str(request.form.get("langue_originale", ""), 100)
+    film.trailer = _sanitize_str(request.form.get("trailer", ""), 300)
 
     img_data = process_image(request.files.get("image_film"))
     if img_data:

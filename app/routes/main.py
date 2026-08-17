@@ -7,7 +7,7 @@ from flask import (
     Blueprint, render_template, request, redirect, url_for,
     flash, jsonify, Response, current_app
 )
-from flask_login import current_user
+from flask_login import current_user, login_required
 
 from app.models import db, Film, Actor, Rating, Message
 from app.utils import (
@@ -251,6 +251,7 @@ def film_detail(film_id):
 
 
 @main_bp.route("/add", methods=["GET", "POST"])
+@login_required
 def add_movie():
     ip = request.remote_addr or "unknown"
     if is_add_blocked(ip):
@@ -328,6 +329,7 @@ def add_movie():
 
 
 @main_bp.route("/edit/<int:movie_id>", methods=["GET", "POST"])
+@login_required
 def edit_movie(movie_id):
     film = db.session.get(Film, movie_id)
     if not film:
