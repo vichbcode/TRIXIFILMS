@@ -799,6 +799,24 @@ def api_create_box():
     return jsonify({"box": _box_to_api(box)}), 201
 
 
+@api_bp.route("/api/boxs", methods=["GET"])
+def api_list_boxs():
+    page, per_page = _validate_pagination()
+    query = request.args.get("q", "").strip()
+    base = Box.query.filter_by(is_public=True)
+    if query:
+        base = base.filter(Box.nom.ilike(f"%{query}%"))
+    total = base.count()
+    boxs = base.order_by(Box.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
+    return jsonify({
+        "boxs": [_box_to_api(b) for b in boxs],
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": math.ceil(total / per_page) if total else 1,
+    })
+
+
 @api_bp.route("/api/boxs/<int:box_id>", methods=["GET"])
 def api_get_box(box_id):
     box = db.session.get(Box, box_id)
