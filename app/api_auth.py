@@ -20,6 +20,9 @@ def _get_jwt_secret():
     secret = os.environ.get("JWT_SECRET")
     if secret:
         return secret
+    secret = os.environ.get("FLASK_SECRET")
+    if secret:
+        return secret
     if current_app and current_app.secret_key:
         return current_app.secret_key
     import secrets

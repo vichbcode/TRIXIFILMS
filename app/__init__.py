@@ -158,6 +158,14 @@ def create_app():
         ensure_column("top_films", "nom", "ALTER TABLE top_films ADD COLUMN nom VARCHAR(200) DEFAULT ''")
         ensure_column("top_films", "image", "ALTER TABLE top_films ADD COLUMN image VARCHAR(500) DEFAULT ''")
 
+        if db.engine.dialect.name == "postgresql":
+            for table in ("box_films", "top_films", "notations", "messages"):
+                if table in inspector.get_table_names():
+                    cols = {c["name"]: c["nullable"] for c in inspector.get_columns(table)}
+                    if not cols.get("film_id", True):
+                        db.session.execute(sa_text(f"ALTER TABLE {table} ALTER COLUMN film_id DROP NOT NULL"))
+            db.session.commit()
+
         admin_prenom = os.environ.get("ADMIN_PRENOM", "").strip()
         admin_pass = os.environ.get("ADMIN_PASS", "").strip()
         if admin_prenom and admin_pass:
