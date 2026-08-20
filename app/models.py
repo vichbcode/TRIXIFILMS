@@ -109,7 +109,8 @@ class Rating(db.Model):
     __tablename__ = "notations"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    film_id = Column(Integer, ForeignKey("films.id", ondelete="CASCADE"), nullable=False)
+    film_id = Column(Integer, ForeignKey("films.id", ondelete="CASCADE"), nullable=True)
+    imdb_id = Column(String(20), default="", index=True)
     prenom = Column(String(100), nullable=False)
     note = Column(Float, nullable=False)
 
@@ -118,10 +119,19 @@ class Message(db.Model):
     __tablename__ = "messages"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    film_id = Column(Integer, ForeignKey("films.id", ondelete="CASCADE"), nullable=False)
+    film_id = Column(Integer, ForeignKey("films.id", ondelete="CASCADE"), nullable=True)
+    imdb_id = Column(String(20), default="", index=True)
     prenom = Column(String(100), nullable=False)
     message = Column(Text, nullable=False)
     created_at = Column(String(20), default="")
+
+
+class HiddenFilm(db.Model):
+    __tablename__ = "hidden_films"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    imdb_id = Column(String(20), unique=True, nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class Box(db.Model):
@@ -144,7 +154,10 @@ class BoxFilm(db.Model):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     box_id = Column(Integer, ForeignKey("boxs.id", ondelete="CASCADE"), nullable=False)
-    film_id = Column(Integer, ForeignKey("films.id", ondelete="CASCADE"), nullable=False)
+    film_id = Column(Integer, ForeignKey("films.id", ondelete="CASCADE"), nullable=True)
+    imdb_id = Column(String(20), default="", index=True)
+    nom = Column(String(200), default="")
+    image = Column(String(500), default="")
     position = Column(Integer, default=0)
     added_at = Column(DateTime, default=datetime.utcnow)
 
@@ -155,7 +168,10 @@ class TopFilm(db.Model):
     __tablename__ = "top_films"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    film_id = Column(Integer, ForeignKey("films.id", ondelete="CASCADE"), nullable=False)
+    film_id = Column(Integer, ForeignKey("films.id", ondelete="CASCADE"), nullable=True)
+    imdb_id = Column(String(20), default="", index=True)
+    nom = Column(String(200), default="")
+    image = Column(String(500), default="")
     position = Column(Integer, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)

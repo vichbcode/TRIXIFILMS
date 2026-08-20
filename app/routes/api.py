@@ -4,7 +4,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify, current_app, redirect
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from app.models import db, Film, Actor, Rating, Message, User, Box, BoxFilm, TopFilm
+from app.models import db, Film, Actor, Rating, Message, User, Box, BoxFilm, TopFilm, HiddenFilm
 from app.utils import (
     normalize_text, process_image,
     get_avg_rating
@@ -63,7 +63,7 @@ def api_login():
     return jsonify({
         "access_token": access_token,
         "refresh_token": refresh_token,
-        "user": {"id": user.id, "prenom": user.prenom},
+        "user": {"id": user.id, "prenom": user.prenom, "is_admin": bool(user.is_admin)},
     })
 
 
@@ -102,7 +102,7 @@ def api_register():
         "message": f"Utilisateur '{prenom}' créé.",
         "access_token": access_token,
         "refresh_token": refresh_token,
-        "user": {"id": user.id, "prenom": user.prenom},
+        "user": {"id": user.id, "prenom": user.prenom, "is_admin": bool(user.is_admin)},
     }), 201
 
 
@@ -458,11 +458,14 @@ def api_edit_film(film_id):
     if img_data:
         film.image = upload_image_bytes(img_data["data"], img_data["mime"]) or ""
 
+    old_actors = {a.id: a.image for a in Actor.query.filter_by(film_id=film_id).all()}
+
     Actor.query.filter_by(film_id=film_id).delete()
 
     actor_names = request.form.getlist("actor_name[]")
     actor_roles = request.form.getlist("actor_role[]")
     actor_files = request.files.getlist("actor_image[]")
+    actor_ids = request.form.getlist("actor_id[]")
 
     for idx, raw_name in enumerate(actor_names):
         name = _sanitize_str(raw_name, 120)
@@ -477,6 +480,12 @@ def api_edit_film(film_id):
         actor = Actor(film_id=film_id, nom=name, role=role)
         if img_data:
             actor.image = upload_image_bytes(img_data["data"], img_data["mime"]) or ""
+        elif idx < len(actor_ids):
+            old_id = actor_ids[idx].strip()
+            if old_id.isdigit():
+                old_img = old_actors.get(int(old_id))
+                if old_img:
+                    actor.image = old_img
         db.session.add(actor)
 
     db.session.commit()
@@ -560,6 +569,45 @@ def api_rate_film(film_id):
     return jsonify({"status": "ok", "avg": avg, "votes": votes, "user_note": note_val})
 
 
+@api_bp.route("/api/films/imdb/<string:imdb_id>/rate", methods=["POST"])
+@rate_limit("api_rate", 20, 60, 300)
+def api_rate_imdb(imdb_id):
+    if HiddenFilm.query.filter_by(imdb_id=imdb_id).first():
+        return jsonify({"error": "Film masqué."}), 404
+    data = request.get_json(silent=True) or {}
+    prenom = _sanitize_str(data.get("prenom", ""), 100)
+    note_raw = data.get("note")
+    if note_raw is None:
+        return jsonify({"error": "Note requise."}), 400
+    if not prenom:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            payload = decode_token(auth_header[7:])
+            if payload and payload.get("type") == "access":
+                user = db.session.get(User, int(payload["sub"]))
+                if user:
+                    prenom = user.prenom
+        if not prenom:
+            prenom = "Anonyme"
+    try:
+        note_val = float(note_raw)
+        if note_val < 0.5 or note_val > 5:
+            raise ValueError
+        note_val = round(note_val * 2) / 2.0
+    except (ValueError, TypeError):
+        return jsonify({"error": "Note invalide (0.5 - 5)."}), 400
+
+    existing = Rating.query.filter_by(imdb_id=imdb_id).all()
+    matched = [r for r in existing if (r.prenom or "").strip().lower() == prenom.lower()]
+    if matched:
+        matched[0].note = note_val
+    else:
+        rating = Rating(imdb_id=imdb_id, prenom=prenom, note=note_val)
+        db.session.add(rating)
+    db.session.commit()
+    return jsonify({"status": "ok", "user_note": note_val})
+
+
 # ─── Messages ────────────────────────────────────────────────────────
 
 @api_bp.route("/api/films/<int:film_id>/messages", methods=["POST"])
@@ -577,6 +625,42 @@ def api_add_message(film_id):
 
     msg = Message(
         film_id=film_id, prenom=prenom, message=message,
+        created_at=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    )
+    db.session.add(msg)
+    db.session.commit()
+    return jsonify({"message": "Message enregistré.", "id": msg.id}), 201
+
+
+@api_bp.route("/api/films/imdb/<string:imdb_id>/messages", methods=["GET"])
+def api_get_imdb_messages(imdb_id):
+    msgs = Message.query.filter_by(imdb_id=imdb_id).order_by(Message.id.asc()).all()
+    return jsonify({
+        "messages": [
+            {
+                "id": m.id,
+                "prenom": m.prenom or "",
+                "message": m.message or "",
+                "created_at": m.created_at or "",
+            }
+            for m in msgs
+        ]
+    })
+
+
+@api_bp.route("/api/films/imdb/<string:imdb_id>/messages", methods=["POST"])
+@rate_limit("api_message", 10, 60, 300)
+def api_add_imdb_message(imdb_id):
+    if HiddenFilm.query.filter_by(imdb_id=imdb_id).first():
+        return jsonify({"error": "Film masqué."}), 404
+    data = request.get_json(silent=True) or {}
+    prenom = _sanitize_str(data.get("prenom", ""), 100)
+    message = _sanitize_str(data.get("message", ""), 2000)
+    if not prenom or not message:
+        return jsonify({"error": "Prénom et message requis."}), 400
+
+    msg = Message(
+        imdb_id=imdb_id, prenom=prenom, message=message,
         created_at=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
     )
     db.session.add(msg)
@@ -682,9 +766,7 @@ def api_tmdb_import(tmdb_id):
     return jsonify({"message": "Import TMDB réussi.", "film": _film_to_api(film)}), 201
 
 
-# ─── Box ────────────────────────────────────────────────────────────
-
-@api_bp.route("/api/boxs", methods=["GET"])
+# ─── methods=["GET"])
 def api_list_boxs():
     q = request.args.get("q", "").strip()
     page, per_page = _validate_pagination()
@@ -723,15 +805,36 @@ def api_get_box(box_id):
     if not box:
         return jsonify({"error": "Box introuvable."}), 404
     if not box.is_public:
-        from flask_login import current_user
-        if not current_user.is_authenticated or box.user_id != current_user.id:
+        auth_header = request.headers.get("Authorization", "")
+        owner_id = None
+        if auth_header.startswith("Bearer "):
+            payload = decode_token(auth_header[7:])
+            if payload and payload.get("type") == "access":
+                try:
+                    owner_id = int(payload["sub"])
+                except (TypeError, ValueError):
+                    owner_id = None
+        if owner_id is None or box.user_id != owner_id:
             return jsonify({"error": "Box privée."}), 403
     films = []
     for bf in box.films:
         if bf.film:
             fd = _film_to_api(bf.film)
             fd["position"] = bf.position
+            fd["entry_id"] = bf.id
+            fd["is_external"] = False
             films.append(fd)
+        elif bf.imdb_id:
+            films.append({
+                "id": None,
+                "imdb_id": bf.imdb_id,
+                "nom": bf.nom or "",
+                "image_url": bf.image or None,
+                "has_image": bool(bf.image),
+                "position": bf.position,
+                "entry_id": bf.id,
+                "is_external": True,
+            })
     return jsonify({"box": _box_to_api(box), "films": films})
 
 
@@ -742,17 +845,37 @@ def api_box_add_film(box_id):
     if not box or box.user_id != request.current_user.id:
         return jsonify({"error": "Accès refusé."}), 403
     data = request.get_json(silent=True) or {}
-    film_id = data.get("film_id", type=int)
-    if not film_id or not db.session.get(Film, film_id):
-        return jsonify({"error": "Film introuvable."}), 404
-    existing = BoxFilm.query.filter_by(box_id=box_id, film_id=film_id).first()
-    if existing:
-        return jsonify({"error": "Déjà dans la box."}), 409
-    max_pos = db.session.query(db.func.max(BoxFilm.position)).filter_by(box_id=box_id).scalar() or 0
-    bf = BoxFilm(box_id=box_id, film_id=film_id, position=max_pos + 1)
-    db.session.add(bf)
-    db.session.commit()
-    return jsonify({"status": "ok", "message": "Film ajouté à la box."})
+    try:
+        film_id = int(data.get("film_id"))
+    except (TypeError, ValueError):
+        film_id = None
+    imdb_id = _sanitize_str(data.get("imdb_id", ""), 20)
+    if film_id:
+        if not db.session.get(Film, film_id):
+            return jsonify({"error": "Film introuvable."}), 404
+        existing = BoxFilm.query.filter_by(box_id=box_id, film_id=film_id).first()
+        if existing:
+            return jsonify({"error": "Déjà dans la box."}), 409
+        max_pos = db.session.query(db.func.max(BoxFilm.position)).filter_by(box_id=box_id).scalar() or 0
+        bf = BoxFilm(box_id=box_id, film_id=film_id, position=max_pos + 1)
+        db.session.add(bf)
+        db.session.commit()
+        return jsonify({"status": "ok", "message": "Film ajouté à la box."})
+    elif imdb_id:
+        existing = BoxFilm.query.filter_by(box_id=box_id, imdb_id=imdb_id).first()
+        if existing:
+            return jsonify({"error": "Déjà dans la box."}), 409
+        max_pos = db.session.query(db.func.max(BoxFilm.position)).filter_by(box_id=box_id).scalar() or 0
+        bf = BoxFilm(
+            box_id=box_id, imdb_id=imdb_id,
+            nom=_sanitize_str(data.get("nom", ""), 200),
+            image=_sanitize_str(data.get("image", ""), 500),
+            position=max_pos + 1,
+        )
+        db.session.add(bf)
+        db.session.commit()
+        return jsonify({"status": "ok", "message": "Film ajouté à la box."})
+    return jsonify({"error": "film_id ou imdb_id requis."}), 400
 
 
 @api_bp.route("/api/boxs/<int:box_id>/films/<int:film_id>", methods=["DELETE"])
@@ -762,6 +885,17 @@ def api_box_remove_film(box_id, film_id):
     if not box or box.user_id != request.current_user.id:
         return jsonify({"error": "Accès refusé."}), 403
     BoxFilm.query.filter_by(box_id=box_id, film_id=film_id).delete()
+    db.session.commit()
+    return jsonify({"status": "ok", "message": "Film retiré."})
+
+
+@api_bp.route("/api/boxs/<int:box_id>/films/imdb/<string:imdb_id>", methods=["DELETE"])
+@token_required
+def api_box_remove_imdb(box_id, imdb_id):
+    box = db.session.get(Box, box_id)
+    if not box or box.user_id != request.current_user.id:
+        return jsonify({"error": "Accès refusé."}), 403
+    BoxFilm.query.filter_by(box_id=box_id, imdb_id=imdb_id).delete()
     db.session.commit()
     return jsonify({"status": "ok", "message": "Film retiré."})
 
@@ -825,7 +959,18 @@ def api_get_top():
         if t.film:
             fd = _film_to_api(t.film)
             fd["top_position"] = t.position
+            fd["is_external"] = False
             results.append(fd)
+        elif t.imdb_id:
+            results.append({
+                "id": None,
+                "imdb_id": t.imdb_id,
+                "nom": t.nom or "",
+                "image_url": t.image or None,
+                "has_image": bool(t.image),
+                "top_position": t.position,
+                "is_external": True,
+            })
     return jsonify({"top": results})
 
 
@@ -833,21 +978,40 @@ def api_get_top():
 @token_required
 def api_add_top():
     data = request.get_json(silent=True) or {}
-    film_id = data.get("film_id", type=int)
-    position = data.get("position", type=int)
-    if not film_id or not position:
-        return jsonify({"error": "film_id et position requis."}), 400
+    try:
+        film_id = int(data.get("film_id"))
+    except (TypeError, ValueError):
+        film_id = None
+    try:
+        position = int(data.get("position"))
+    except (TypeError, ValueError):
+        position = None
+    if not position:
+        return jsonify({"error": "Position requise (1-20)."}), 400
     if position < 1 or position > 20:
         return jsonify({"error": "Position invalide (1-20)."}), 400
-    if not db.session.get(Film, film_id):
-        return jsonify({"error": "Film introuvable."}), 404
+    imdb_id = _sanitize_str(data.get("imdb_id", ""), 20)
+
+    if not film_id and not imdb_id:
+        return jsonify({"error": "film_id ou imdb_id requis."}), 400
+
     existing = TopFilm.query.filter_by(user_id=request.current_user.id, position=position).first()
     if existing:
         db.session.delete(existing)
-    existing_film = TopFilm.query.filter_by(user_id=request.current_user.id, film_id=film_id).first()
-    if existing_film:
-        db.session.delete(existing_film)
-    top = TopFilm(film_id=film_id, position=position, user_id=request.current_user.id)
+    if film_id:
+        existing_film = TopFilm.query.filter_by(user_id=request.current_user.id, film_id=film_id).first()
+        if existing_film:
+            db.session.delete(existing_film)
+        top = TopFilm(film_id=film_id, position=position, user_id=request.current_user.id)
+    else:
+        existing_film = TopFilm.query.filter_by(user_id=request.current_user.id, imdb_id=imdb_id).first()
+        if existing_film:
+            db.session.delete(existing_film)
+        top = TopFilm(
+            imdb_id=imdb_id, position=position, user_id=request.current_user.id,
+            nom=_sanitize_str(data.get("nom", ""), 200),
+            image=_sanitize_str(data.get("image", ""), 500),
+        )
     db.session.add(top)
     db.session.commit()
     return jsonify({"status": "ok", "message": "Ajouté au top."}), 201
@@ -861,6 +1025,46 @@ def api_remove_top(film_id):
         db.session.delete(entry)
         db.session.commit()
     return jsonify({"status": "ok", "message": "Retiré du top."})
+
+
+@api_bp.route("/api/top/imdb/<string:imdb_id>", methods=["DELETE"])
+@token_required
+def api_remove_top_imdb(imdb_id):
+    entry = TopFilm.query.filter_by(imdb_id=imdb_id, user_id=request.current_user.id).first()
+    if entry:
+        db.session.delete(entry)
+        db.session.commit()
+    return jsonify({"status": "ok", "message": "Retiré du top."})
+
+
+# ─── Hidden films (admin) ────────────────────────────────────────────
+
+@api_bp.route("/api/hidden", methods=["GET"])
+def api_list_hidden():
+    hidden = HiddenFilm.query.order_by(HiddenFilm.created_at.desc()).all()
+    return jsonify({"hidden": [h.imdb_id for h in hidden]})
+
+
+@api_bp.route("/api/hidden/<string:imdb_id>", methods=["POST"])
+@token_required
+def api_hide_film(imdb_id):
+    if not getattr(request.current_user, "is_admin", False):
+        return jsonify({"error": "Accès refusé : administrateur requis."}), 403
+    existing = HiddenFilm.query.filter_by(imdb_id=imdb_id).first()
+    if not existing:
+        db.session.add(HiddenFilm(imdb_id=imdb_id))
+        db.session.commit()
+    return jsonify({"status": "ok", "message": "Film masqué."})
+
+
+@api_bp.route("/api/hidden/<string:imdb_id>", methods=["DELETE"])
+@token_required
+def api_unhide_film(imdb_id):
+    if not getattr(request.current_user, "is_admin", False):
+        return jsonify({"error": "Accès refusé : administrateur requis."}), 403
+    HiddenFilm.query.filter_by(imdb_id=imdb_id).delete()
+    db.session.commit()
+    return jsonify({"status": "ok", "message": "Film démasqué."})
 
 
 # ─── Health ──────────────────────────────────────────────────────────

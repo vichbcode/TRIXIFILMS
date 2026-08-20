@@ -2,6 +2,7 @@ import os
 import logging
 import click
 from logging.handlers import RotatingFileHandler
+from sqlalchemy import inspect, text as sa_text
 
 from flask import Flask, redirect, request, url_for, flash, render_template
 from flask_wtf.csrf import CSRFError
@@ -123,9 +124,17 @@ def create_app():
     with app.app_context():
         db.create_all()
 
+        inspector = inspect(db.engine)
+
+        def ensure_column(table, col_name, ddl):
+            if table not in inspector.get_table_names():
+                return
+            cols = [c["name"] for c in inspector.get_columns(table)]
+            if col_name not in cols:
+                db.session.execute(sa_text(ddl))
+                db.session.commit()
+
         if db.engine.dialect.name == "sqlite":
-            from sqlalchemy import inspect, text as sa_text
-            inspector = inspect(db.engine)
             film_cols = [c["name"] for c in inspector.get_columns("films")]
             user_cols = [c["name"] for c in inspector.get_columns("users")]
             if "categorie" not in film_cols:
@@ -138,6 +147,16 @@ def create_app():
                 db.session.execute(sa_text("ALTER TABLE users ADD COLUMN created_at DATETIME"))
             if "is_admin" not in user_cols:
                 db.session.execute(sa_text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0"))
+            db.session.commit()
+
+        ensure_column("notations", "imdb_id", "ALTER TABLE notations ADD COLUMN imdb_id VARCHAR(20) DEFAULT ''")
+        ensure_column("messages", "imdb_id", "ALTER TABLE messages ADD COLUMN imdb_id VARCHAR(20) DEFAULT ''")
+        ensure_column("box_films", "imdb_id", "ALTER TABLE box_films ADD COLUMN imdb_id VARCHAR(20) DEFAULT ''")
+        ensure_column("box_films", "nom", "ALTER TABLE box_films ADD COLUMN nom VARCHAR(200) DEFAULT ''")
+        ensure_column("box_films", "image", "ALTER TABLE box_films ADD COLUMN image VARCHAR(500) DEFAULT ''")
+        ensure_column("top_films", "imdb_id", "ALTER TABLE top_films ADD COLUMN imdb_id VARCHAR(20) DEFAULT ''")
+        ensure_column("top_films", "nom", "ALTER TABLE top_films ADD COLUMN nom VARCHAR(200) DEFAULT ''")
+        ensure_column("top_films", "image", "ALTER TABLE top_films ADD COLUMN image VARCHAR(500) DEFAULT ''")
 
         admin_prenom = os.environ.get("ADMIN_PRENOM", "").strip()
         admin_pass = os.environ.get("ADMIN_PASS", "").strip()
@@ -218,5 +237,19 @@ def create_app():
             db.session.add(user)
             db.session.commit()
             click.echo(f"Utilisateur administrateur '{prenom}' créé avec succès.")
+
+    @app.cli.command("wipe-films")
+    def wipe_films():
+        """Supprime tous les films locaux (et leurs acteurs, notations, messages liés)."""
+        from app.models import Film
+        with app.app_context():
+            count = Film.query.count()
+            click.confirm(
+                f"Supprimer définitivement les {count} films de la base ?",
+                abort=True,
+            )
+            Film.query.delete()
+            db.session.commit()
+            click.echo(f"{count} films supprimés.")
 
     return app
