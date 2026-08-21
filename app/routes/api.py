@@ -791,7 +791,11 @@ def _person_filmography_wikidata(name):
             continue
         seen.add(imdb)
         poster = None
-        if img:
+        if img.startswith("http"):
+            poster = img
+            if "width=" not in poster:
+                poster += ("&" if "?" in poster else "?") + "width=342"
+        elif img:
             poster = ("https://commons.wikimedia.org/wiki/Special:FilePath/"
                       + quote(img) + "?width=342")
         films.append({
