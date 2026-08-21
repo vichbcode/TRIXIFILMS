@@ -727,6 +727,96 @@ def api_tmdb_search():
     return jsonify({"results": out})
 
 
+@api_bp.route("/api/tmdb/person/<path:name>", methods=["GET"])
+@rate_limit("api_tmdb_person", 30, 60, 600)
+def api_tmdb_person(name):
+    name = _sanitize_str(name, 120)
+    if not name:
+        return jsonify({"error": "name required"}), 400
+    api_key = current_app.config.get("TMDB_API_KEY", "")
+    if not api_key:
+        return jsonify({"error": "TMDB_API_KEY not configured"}), 503
+    import requests as http_req
+    try:
+        r = http_req.get(
+            "https://api.themoviedb.org/3/search/person",
+            params={"api_key": api_key, "query": name, "include_adult": False,
+                    "language": "fr-FR"},
+            timeout=10,
+        )
+        r.raise_for_status()
+        persons = r.json().get("results", [])
+        if not persons:
+            return jsonify({"person": None, "films": []})
+        person = persons[0]
+        try:
+            pid = int(person.get("id") or 0)
+        except (TypeError, ValueError):
+            pid = 0
+        if pid <= 0:
+            return jsonify({"person": None, "films": []})
+        r2 = http_req.get(
+            f"https://api.themoviedb.org/3/person/{pid}/combined_credits",
+            params={"api_key": api_key, "language": "fr-FR"},
+            timeout=10,
+        )
+        r2.raise_for_status()
+        credits = r2.json()
+    except Exception:
+        current_app.logger.exception("TMDB person lookup failed")
+        return jsonify({"error": "TMDB person lookup failed"}), 500
+
+    candidates = [c for c in list(credits.get("cast", [])) +
+                  list(credits.get("crew", []))
+                  if c.get("media_type") == "movie" and c.get("id")]
+    best = {}
+    for c in candidates:
+        try:
+            mid = int(c["id"])
+        except (TypeError, ValueError):
+            continue
+        prev = best.get(mid)
+        if prev is None or (c.get("popularity") or 0) > (prev.get("popularity") or 0):
+            best[mid] = c
+    ranked = sorted(best.values(),
+                    key=lambda c: (c.get("release_date") or ""), reverse=True)[:24]
+
+    def fetch_imdb(c):
+        try:
+            rr = http_req.get(
+                f"https://api.themoviedb.org/3/movie/{int(c['id'])}/external_ids",
+                params={"api_key": api_key}, timeout=10)
+            rr.raise_for_status()
+            imdb_id = (rr.json() or {}).get("imdb_id") or ""
+            if not imdb_id.startswith("tt"):
+                return None
+        except Exception:
+            return None
+        date = c.get("release_date") or ""
+        year = date[:4] if len(date) >= 4 else ""
+        return {
+            "imdb_id": imdb_id,
+            "title": c.get("title") or c.get("original_title") or "",
+            "year": year,
+            "poster": ("https://image.tmdb.org/t/p/w500" + c["poster_path"])
+                      if c.get("poster_path") else None,
+            "rating": c.get("vote_average"),
+        }
+
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        films = [f for f in ex.map(fetch_imdb, ranked) if f]
+    return jsonify({
+        "person": {
+            "name": person.get("name"),
+            "department": person.get("known_for_department"),
+            "profile": ("https://image.tmdb.org/t/p/w300" + person["profile_path"])
+                       if person.get("profile_path") else None,
+        },
+        "films": films,
+    })
+
+
 @api_bp.route("/api/tmdb/import/<int:tmdb_id>", methods=["POST"])
 @token_required
 @rate_limit("api_tmdb_import", 5, 300, 1800)
