@@ -727,6 +727,83 @@ def api_tmdb_search():
     return jsonify({"results": out})
 
 
+def _person_filmography_wikidata(name):
+    """Filmographie sans cle API : IMDb suggestions -> Wikidata SPARQL."""
+    import re as _re
+    import requests as http_req
+    ua = {"User-Agent": "TRIXIFILMS/1.0 (contact: app)"}
+    slug = _re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+    if not slug:
+        return None, []
+    try:
+        r = http_req.get(
+            f"https://v3.sg.media-imdb.com/suggestion/x/{slug}.json",
+            headers=ua, timeout=10)
+        r.raise_for_status()
+        entries = r.json().get("d", [])
+    except Exception:
+        current_app.logger.exception("IMDb suggestions failed")
+        return None, []
+    person = next((e for e in entries
+                   if str(e.get("id", "")).startswith("nm")
+                   and str(e.get("l", "")).lower() == name.lower()), None)
+    person = person or next(
+        (e for e in entries if str(e.get("id", "")).startswith("nm")), None)
+    if not person:
+        return None, []
+    nmid = str(person["id"])
+    if not _re.fullmatch(r"nm\d+", nmid):
+        return None, []
+
+    sparql = """
+    SELECT DISTINCT ?film ?filmLabel ?imdb ?date WHERE {
+      ?p wdt:P345 "%s".
+      { ?film wdt:P57 ?p } UNION { ?film wdt:P58 ?p }
+      UNION { ?film wdt:P161 ?p } UNION { ?film wdt:P162 ?p }
+      ?film wdt:P345 ?imdb.
+      OPTIONAL { ?film wdt:P577 ?date }
+      SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". }
+    } ORDER BY DESC(?date) LIMIT 60
+    """ % nmid
+    try:
+        r2 = http_req.get(
+            "https://query.wikidata.org/sparql",
+            params={"query": sparql},
+            headers={**ua, "Accept": "application/sparql-results+json"},
+            timeout=20)
+        r2.raise_for_status()
+        rows = r2.json().get("results", {}).get("bindings", [])
+    except Exception:
+        current_app.logger.exception("Wikidata query failed")
+        rows = []
+
+    films, seen = [], set()
+    for row in sorted(rows,
+                      key=lambda rw: rw.get("date", {}).get("value", ""),
+                      reverse=True):
+        imdb = row.get("imdb", {}).get("value", "")
+        title = row.get("filmLabel", {}).get("value", "")
+        year = row.get("date", {}).get("value", "")[:4]
+        if not imdb.startswith("tt") or not title or imdb in seen:
+            continue
+        seen.add(imdb)
+        films.append({
+            "imdb_id": imdb,
+            "title": title,
+            "year": year,
+            "poster": None,
+            "rating": None,
+        })
+        if len(films) >= 30:
+            break
+    profile = person.get("image")
+    return {
+        "name": person.get("l") or name,
+        "department": None,
+        "profile": profile if isinstance(profile, str) else None,
+    }, films
+
+
 @api_bp.route("/api/tmdb/person/<path:name>", methods=["GET"])
 @rate_limit("api_tmdb_person", 30, 60, 600)
 def api_tmdb_person(name):
@@ -735,7 +812,8 @@ def api_tmdb_person(name):
         return jsonify({"error": "name required"}), 400
     api_key = current_app.config.get("TMDB_API_KEY", "")
     if not api_key:
-        return jsonify({"error": "TMDB_API_KEY not configured"}), 503
+        person, films = _person_filmography_wikidata(name)
+        return jsonify({"person": person, "films": films})
     import requests as http_req
     try:
         r = http_req.get(
