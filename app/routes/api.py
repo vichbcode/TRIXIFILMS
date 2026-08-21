@@ -1,5 +1,6 @@
 import re, math, secrets
 from datetime import datetime
+from urllib.parse import quote
 
 from flask import Blueprint, request, jsonify, current_app, redirect
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -756,12 +757,13 @@ def _person_filmography_wikidata(name):
         return None, []
 
     sparql = """
-    SELECT DISTINCT ?film ?filmLabel ?imdb ?date WHERE {
+    SELECT DISTINCT ?film ?filmLabel ?imdb ?date ?img WHERE {
       ?p wdt:P345 "%s".
       { ?film wdt:P57 ?p } UNION { ?film wdt:P58 ?p }
       UNION { ?film wdt:P161 ?p } UNION { ?film wdt:P162 ?p }
       ?film wdt:P345 ?imdb.
       OPTIONAL { ?film wdt:P577 ?date }
+      OPTIONAL { ?film wdt:P18 ?img }
       SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". }
     } ORDER BY DESC(?date) LIMIT 60
     """ % nmid
@@ -784,14 +786,19 @@ def _person_filmography_wikidata(name):
         imdb = row.get("imdb", {}).get("value", "")
         title = row.get("filmLabel", {}).get("value", "")
         year = row.get("date", {}).get("value", "")[:4]
+        img = row.get("img", {}).get("value", "")
         if not imdb.startswith("tt") or not title or imdb in seen:
             continue
         seen.add(imdb)
+        poster = None
+        if img:
+            poster = ("https://commons.wikimedia.org/wiki/Special:FilePath/"
+                      + quote(img) + "?width=342")
         films.append({
             "imdb_id": imdb,
             "title": title,
             "year": year,
-            "poster": None,
+            "poster": poster,
             "rating": None,
         })
         if len(films) >= 30:
