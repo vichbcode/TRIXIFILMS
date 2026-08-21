@@ -714,7 +714,7 @@ def api_tmdb_search():
         res = r.json()
     except Exception as e:
         current_app.logger.exception("TMDB search failed")
-        return jsonify({"error": "TMDB search failed", "details": str(e)}), 500
+        return jsonify({"error": "TMDB search failed"}), 500
     out = []
     for it in res.get("results", [])[:20]:
         out.append({
@@ -912,7 +912,7 @@ def api_tmdb_import(tmdb_id):
         data = r.json()
     except Exception as e:
         current_app.logger.exception("TMDB import failed")
-        return jsonify({"error": "TMDB fetch failed", "details": str(e)}), 500
+        return jsonify({"error": "TMDB fetch failed"}), 500
 
     title = data.get("title") or data.get("original_title") or f"TMDB-{tmdb_id}"
     overview = _sanitize_str(data.get("overview", ""), 2000)
