@@ -165,6 +165,14 @@ def healthz():
     return Response("ok", status=200)
 
 
+@main_bp.route("/trailer/<string:video_id>")
+def trailer_embed(video_id: str):
+    if not re.match(r"^[A-Za-z0-9_-]{6,20}$", video_id):
+        return Response("Not found", status=404)
+    autoplay = 1 if request.args.get("autoplay") == "1" else 0
+    return render_template("trailer.html", video_id=video_id, autoplay=autoplay)
+
+
 @main_bp.route("/")
 def index():
     q_raw = request.args.get("q", "").strip()
