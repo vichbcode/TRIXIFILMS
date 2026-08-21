@@ -1,5 +1,6 @@
 import os
 import time
+import hashlib
 import logging
 from functools import wraps
 
@@ -23,10 +24,14 @@ def _get_jwt_secret():
     secret = os.environ.get("FLASK_SECRET")
     if secret:
         return secret
-    if current_app and current_app.secret_key:
-        return current_app.secret_key
+    # Fallback deterministe : derive un secret STABLE d'une variable d'env stable.
+    # Indispensable en serverless (Vercel) : un secret aleatoire par instance
+    # invaliderait tous les tokens a chaque cold start (deconnexions permanentes).
+    base = os.environ.get("DATABASE_URL") or ""
+    if base:
+        return hashlib.sha256(("trixifilms-jwt-v1:" + base).encode("utf-8")).hexdigest()
     import secrets
-    logger.warning("JWT_SECRET absent: génération d'une clé aléatoire (les tokens seront invalidés au redémarrage).")
+    logger.warning("JWT_SECRET absent: generation d'une cle aleatoire (les tokens seront invalides au redemarrage).")
     return secrets.token_hex(32)
 
 
