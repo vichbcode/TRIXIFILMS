@@ -1,10 +1,10 @@
-import re, math
+import re, math, secrets
 from datetime import datetime
 
 from flask import Blueprint, request, jsonify, current_app, redirect
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from app.models import db, Film, Actor, Rating, Message, User, Box, BoxFilm, TopFilm, HiddenFilm
+from app.models import db, Film, Actor, Rating, Message, User, Box, BoxFilm, BoxMember, TopFilm, HiddenFilm
 from app.utils import (
     normalize_text, process_image,
     get_avg_rating
@@ -20,6 +20,7 @@ api_bp = Blueprint("api", __name__)
 
 PER_PAGE = 24
 MIME_MAP = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "gif": "image/gif"}
+_SHARE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 
 def _sanitize_str(val, maxlen=500):
@@ -29,6 +30,51 @@ def _sanitize_str(val, maxlen=500):
     for ch in ('<', '>', '"', "'", ';', '&'):
         s = s.replace(ch, '')
     return s
+
+
+def _viewer_id_from_header():
+    """Retourne l'id de l'utilisateur si un access token valide est présent, sinon None."""
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        payload = decode_token(auth_header[7:])
+        if payload and payload.get("type") == "access":
+            try:
+                return int(payload["sub"])
+            except (TypeError, ValueError):
+                return None
+    return None
+
+
+def _resolve_prenom():
+    """Prénom vérifié : celui du compte si token valide, sinon 'Anonyme'.
+    Empêche l'usurpation d'identité via le champ prenom du body."""
+    viewer_id = _viewer_id_from_header()
+    if viewer_id is not None:
+        user = db.session.get(User, viewer_id)
+        if user:
+            return user.prenom
+    return "Anonyme"
+
+
+def _can_view_box(box):
+    """Box publique : tout le monde. Privée : propriétaire ou membre invité."""
+    if box.is_public:
+        return True
+    viewer_id = _viewer_id_from_header()
+    if viewer_id is None:
+        return False
+    if box.user_id == viewer_id:
+        return True
+    return db.session.query(BoxMember.id).filter_by(
+        box_id=box.id, user_id=viewer_id).first() is not None
+
+
+def _gen_share_code():
+    for _ in range(10):
+        code = "".join(secrets.choice(_SHARE_ALPHABET) for _ in range(8))
+        if not Box.query.filter_by(share_code=code).first():
+            return code
+    raise RuntimeError("Impossible de générer un code de partage.")
 
 
 def _validate_pagination():
@@ -533,21 +579,10 @@ def api_rate_film(film_id):
         return jsonify({"error": "Film introuvable."}), 404
 
     data = request.get_json(silent=True) or {}
-    prenom = _sanitize_str(data.get("prenom", ""), 100)
+    prenom = _resolve_prenom()
     note_raw = data.get("note")
     if note_raw is None:
         return jsonify({"error": "Note requise."}), 400
-    if not prenom:
-        auth_header = request.headers.get("Authorization", "")
-        if auth_header.startswith("Bearer "):
-            payload = decode_token(auth_header[7:])
-            if payload and payload.get("type") == "access":
-                user = db.session.get(User, int(payload["sub"]))
-                if user:
-                    prenom = user.prenom
-        if not prenom:
-            prenom = "Anonyme"
-
     try:
         note_val = float(note_raw)
         if note_val < 0.5 or note_val > 5:
@@ -575,20 +610,10 @@ def api_rate_imdb(imdb_id):
     if HiddenFilm.query.filter_by(imdb_id=imdb_id).first():
         return jsonify({"error": "Film masqué."}), 404
     data = request.get_json(silent=True) or {}
-    prenom = _sanitize_str(data.get("prenom", ""), 100)
+    prenom = _resolve_prenom()
     note_raw = data.get("note")
     if note_raw is None:
         return jsonify({"error": "Note requise."}), 400
-    if not prenom:
-        auth_header = request.headers.get("Authorization", "")
-        if auth_header.startswith("Bearer "):
-            payload = decode_token(auth_header[7:])
-            if payload and payload.get("type") == "access":
-                user = db.session.get(User, int(payload["sub"]))
-                if user:
-                    prenom = user.prenom
-        if not prenom:
-            prenom = "Anonyme"
     try:
         note_val = float(note_raw)
         if note_val < 0.5 or note_val > 5:
@@ -618,10 +643,10 @@ def api_add_message(film_id):
         return jsonify({"error": "Film introuvable."}), 404
 
     data = request.get_json(silent=True) or {}
-    prenom = _sanitize_str(data.get("prenom", ""), 100)
+    prenom = _resolve_prenom()
     message = _sanitize_str(data.get("message", ""), 2000)
-    if not prenom or not message:
-        return jsonify({"error": "Prénom et message requis."}), 400
+    if not message:
+        return jsonify({"error": "Message requis."}), 400
 
     msg = Message(
         film_id=film_id, prenom=prenom, message=message,
@@ -654,10 +679,10 @@ def api_add_imdb_message(imdb_id):
     if HiddenFilm.query.filter_by(imdb_id=imdb_id).first():
         return jsonify({"error": "Film masqué."}), 404
     data = request.get_json(silent=True) or {}
-    prenom = _sanitize_str(data.get("prenom", ""), 100)
+    prenom = _resolve_prenom()
     message = _sanitize_str(data.get("message", ""), 2000)
-    if not prenom or not message:
-        return jsonify({"error": "Prénom et message requis."}), 400
+    if not message:
+        return jsonify({"error": "Message requis."}), 400
 
     msg = Message(
         imdb_id=imdb_id, prenom=prenom, message=message,
@@ -766,22 +791,7 @@ def api_tmdb_import(tmdb_id):
     return jsonify({"message": "Import TMDB réussi.", "film": _film_to_api(film)}), 201
 
 
-# ─── methods=["GET"])
-def api_list_boxs():
-    q = request.args.get("q", "").strip()
-    page, per_page = _validate_pagination()
-    query = Box.query.filter_by(is_public=True)
-    if q:
-        query = query.filter(Box.nom.ilike(f"%{q}%"))
-    total = query.count()
-    total_pages = max(1, math.ceil(total / per_page))
-    boxs = query.order_by(Box.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
-    return jsonify({
-        "boxs": [_box_to_api(b) for b in boxs],
-        "page": page, "per_page": per_page,
-        "total": total, "total_pages": total_pages,
-    })
-
+# ─── Boxs ────────────────────────────────────────────────────────────
 
 @api_bp.route("/api/boxs", methods=["POST"])
 @token_required
@@ -822,18 +832,12 @@ def api_get_box(box_id):
     box = db.session.get(Box, box_id)
     if not box:
         return jsonify({"error": "Box introuvable."}), 404
-    if not box.is_public:
-        auth_header = request.headers.get("Authorization", "")
-        owner_id = None
-        if auth_header.startswith("Bearer "):
-            payload = decode_token(auth_header[7:])
-            if payload and payload.get("type") == "access":
-                try:
-                    owner_id = int(payload["sub"])
-                except (TypeError, ValueError):
-                    owner_id = None
-        if owner_id is None or box.user_id != owner_id:
-            return jsonify({"error": "Box privée."}), 403
+    viewer_id = _viewer_id_from_header()
+    is_owner = bool(viewer_id is not None and box.user_id == viewer_id)
+    member_ids = {m.user_id for m in box.members}
+    is_member = bool(viewer_id is not None and not is_owner and viewer_id in member_ids)
+    if not box.is_public and not is_owner and not is_member:
+        return jsonify({"error": "Box privée."}), 403
     films = []
     for bf in box.films:
         if bf.film:
@@ -853,7 +857,14 @@ def api_get_box(box_id):
                 "entry_id": bf.id,
                 "is_external": True,
             })
-    return jsonify({"box": _box_to_api(box), "films": films})
+    return jsonify({
+        "box": _box_to_api(box),
+        "films": films,
+        "is_owner": is_owner,
+        "is_member": is_member,
+        "is_shared": bool(box.share_code) if is_owner else None,
+        "share_code": box.share_code if is_owner else None,
+    })
 
 
 @api_bp.route("/api/boxs/<int:box_id>/films", methods=["POST"])
@@ -949,8 +960,14 @@ def api_delete_box(box_id):
 @api_bp.route("/api/my-boxs", methods=["GET"])
 @token_required
 def api_my_boxs():
-    boxs = Box.query.filter_by(user_id=request.current_user.id).order_by(Box.created_at.desc()).all()
-    return jsonify({"boxs": [_box_to_api(b) for b in boxs]})
+    mine = Box.query.filter_by(user_id=request.current_user.id).order_by(Box.created_at.desc()).all()
+    shared = (Box.query.join(BoxMember, BoxMember.box_id == Box.id)
+              .filter(BoxMember.user_id == request.current_user.id)
+              .order_by(Box.created_at.desc()).all())
+    return jsonify({
+        "boxs": [_box_to_api(b) for b in mine],
+        "shared_boxs": [_box_to_api(b) for b in shared],
+    })
 
 
 def _box_to_api(box):
@@ -962,8 +979,93 @@ def _box_to_api(box):
         "user_id": box.user_id,
         "user_prenom": box.owner.prenom if box.owner else "",
         "film_count": len(box.films),
+        "member_count": len(box.members),
         "created_at": box.created_at.isoformat() if box.created_at else None,
     }
+
+
+# ─── Partage de box ─────────────────────────────────────────────────
+
+def _get_owned_box(box_id, user):
+    box = db.session.get(Box, box_id)
+    if not box or box.user_id != user.id:
+        return None
+    return box
+
+
+@api_bp.route("/api/boxs/<int:box_id>/share", methods=["POST"])
+@token_required
+def api_share_box(box_id):
+    box = _get_owned_box(box_id, request.current_user)
+    if not box:
+        return jsonify({"error": "Accès refusé."}), 403
+    data = request.get_json(silent=True) or {}
+    if data.get("regenerate") or not box.share_code:
+        box.share_code = _gen_share_code()
+        db.session.commit()
+    return jsonify({"share_code": box.share_code})
+
+
+@api_bp.route("/api/boxs/<int:box_id>/share", methods=["DELETE"])
+@token_required
+def api_unshare_box(box_id):
+    box = _get_owned_box(box_id, request.current_user)
+    if not box:
+        return jsonify({"error": "Accès refusé."}), 403
+    box.share_code = None
+    BoxMember.query.filter_by(box_id=box.id).delete()
+    db.session.commit()
+    return jsonify({"status": "ok", "message": "Partage désactivé."})
+
+
+@api_bp.route("/api/boxs/<int:box_id>/members", methods=["GET"])
+@token_required
+def api_box_members(box_id):
+    box = _get_owned_box(box_id, request.current_user)
+    if not box:
+        return jsonify({"error": "Accès refusé."}), 403
+    members = BoxMember.query.filter_by(box_id=box.id).all()
+    return jsonify({"members": [
+        {
+            "user_id": m.user_id,
+            "prenom": m.user.prenom if m.user else "?",
+            "joined_at": m.created_at.isoformat() if m.created_at else None,
+        }
+        for m in members
+    ]})
+
+
+@api_bp.route("/api/boxs/<int:box_id>/members/<int:user_id>", methods=["DELETE"])
+@token_required
+def api_box_remove_member(box_id, user_id):
+    box = _get_owned_box(box_id, request.current_user)
+    if not box:
+        return jsonify({"error": "Accès refusé."}), 403
+    deleted = BoxMember.query.filter_by(box_id=box.id, user_id=user_id).delete()
+    db.session.commit()
+    if not deleted:
+        return jsonify({"error": "Membre introuvable."}), 404
+    return jsonify({"status": "ok", "message": "Membre retiré."})
+
+
+@api_bp.route("/api/boxs/join", methods=["POST"])
+@token_required
+@rate_limit("api_join_box", 10, 300, 900)
+def api_join_box():
+    data = request.get_json(silent=True) or {}
+    code = _sanitize_str(data.get("code", ""), 12).upper().replace(" ", "")
+    if len(code) < 4:
+        return jsonify({"error": "Code invalide."}), 400
+    box = Box.query.filter_by(share_code=code).first()
+    if not box:
+        return jsonify({"error": "Code invalide ou expiré."}), 404
+    already = box.user_id == request.current_user.id or db.session.query(
+        BoxMember.id).filter_by(box_id=box.id, user_id=request.current_user.id).first() is not None
+    if not already:
+        member = BoxMember(box_id=box.id, user_id=request.current_user.id)
+        db.session.add(member)
+        db.session.commit()
+    return jsonify({"status": "ok", "already": already, "box": _box_to_api(box)})
 
 
 # ─── Top ────────────────────────────────────────────────────────────

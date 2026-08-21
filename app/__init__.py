@@ -32,6 +32,9 @@ def create_app():
 
     app.config.from_object(Config)
 
+    if is_prod:
+        app.config["SESSION_COOKIE_SECURE"] = True
+
     if Config.SECRET_KEY:
         app.secret_key = Config.SECRET_KEY
     else:
@@ -154,6 +157,14 @@ def create_app():
         ensure_column("box_films", "imdb_id", "ALTER TABLE box_films ADD COLUMN imdb_id VARCHAR(20) DEFAULT ''")
         ensure_column("box_films", "nom", "ALTER TABLE box_films ADD COLUMN nom VARCHAR(200) DEFAULT ''")
         ensure_column("box_films", "image", "ALTER TABLE box_films ADD COLUMN image VARCHAR(500) DEFAULT ''")
+        ensure_column("boxs", "share_code", "ALTER TABLE boxs ADD COLUMN share_code VARCHAR(12)")
+        if db.engine.dialect.name == "postgresql" and "boxs" in inspector.get_table_names():
+            cols = [c["name"] for c in inspector.get_columns("boxs")]
+            if "share_code" in cols:
+                db.session.execute(sa_text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS ix_boxs_share_code ON boxs (share_code)"
+                ))
+                db.session.commit()
         ensure_column("top_films", "imdb_id", "ALTER TABLE top_films ADD COLUMN imdb_id VARCHAR(20) DEFAULT ''")
         ensure_column("top_films", "nom", "ALTER TABLE top_films ADD COLUMN nom VARCHAR(200) DEFAULT ''")
         ensure_column("top_films", "image", "ALTER TABLE top_films ADD COLUMN image VARCHAR(500) DEFAULT ''")

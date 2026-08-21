@@ -51,6 +51,8 @@ class User(db.Model, UserMixin):
                            cascade="all, delete-orphan")
     top_films = db.relationship("TopFilm", backref="user", lazy="select",
                                 cascade="all, delete-orphan")
+    box_memberships = db.relationship("BoxMember", backref="user", lazy="select",
+                                      cascade="all, delete-orphan")
 
 
 class Film(db.Model):
@@ -142,11 +144,24 @@ class Box(db.Model):
     description = Column(Text, default="")
     is_public = Column(Boolean, default=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    share_code = Column(String(12), unique=True, nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     films = db.relationship("BoxFilm", backref="box", lazy="select",
                             cascade="all, delete-orphan",
                             order_by="BoxFilm.position")
+    members = db.relationship("BoxMember", backref="box_rel", lazy="select",
+                              cascade="all, delete-orphan")
+
+
+class BoxMember(db.Model):
+    __tablename__ = "box_members"
+    __table_args__ = (db.UniqueConstraint("box_id", "user_id", name="uq_box_member"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    box_id = Column(Integer, ForeignKey("boxs.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class BoxFilm(db.Model):
