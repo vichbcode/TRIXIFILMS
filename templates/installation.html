@@ -1,389 +1,371 @@
-﻿{% extends 'base.html' %}
-{% block title %}{{ title }} -- TRIXIFILMS{% endblock %}
-{% block content %}
+﻿<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>{{ title }} -- TRIXIFILMS</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+  body{display:block;background:var(--bg);color:var(--text)}
+  .inst-hero{position:relative;padding:100px 0 60px;text-align:center;overflow:hidden}
+  .inst-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(217,65,62,.18) 0%,transparent 60%);pointer-events:none}
+  .inst-hero-title{font-size:clamp(48px,10vw,96px);font-weight:900;letter-spacing:4px;text-transform:uppercase;background:linear-gradient(135deg,#d9413e 0%,#f5c518 50%,#d9413e 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin:0;line-height:1.05}
+  .inst-hero-sub{font-size:clamp(12px,2.5vw,18px);letter-spacing:8px;text-transform:uppercase;color:var(--text-secondary);margin:12px 0 24px;font-weight:600}
+  .inst-hero-tag{font-size:clamp(14px,2vw,17px);color:var(--text-secondary);max-width:560px;margin:0 auto 36px;line-height:1.7}
+  .inst-chips{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin:0 auto 40px}
+  .inst-chip{padding:6px 16px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;border:1px solid var(--border);background:var(--panel);color:var(--text-secondary)}
+  .inst-chip.accent{border-color:var(--accent);color:var(--accent);background:rgba(217,65,62,.08)}
+  .inst-cta{display:inline-block;padding:18px 48px;border-radius:12px;font-size:18px;font-weight:800;text-transform:uppercase;letter-spacing:2px;text-decoration:none;background:linear-gradient(135deg,#d9413e,#c03532);color:#fff;transition:transform .2s,box-shadow .2s;box-shadow:0 4px 24px rgba(217,65,62,.3)}
+  .inst-cta:hover{transform:translateY(-3px);box-shadow:0 8px 32px rgba(217,65,62,.45)}
+  .inst-cta-sm{display:inline-block;margin-top:16px;font-size:13px;color:var(--text-secondary);text-decoration:underline;text-underline-offset:3px}
+  .inst-section{max-width:860px;margin:0 auto;padding:0 20px 72px}
+  .inst-divider{width:60px;height:2px;background:var(--accent);margin:0 auto 64px;border-radius:1px}
+  .inst-num{font-size:clamp(48px,8vw,72px);font-weight:900;-webkit-text-stroke:2px var(--accent);-webkit-text-fill-color:transparent;line-height:1;margin-bottom:4px}
+  .inst-chap{font-size:11px;letter-spacing:6px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;font-weight:700}
+  .inst-title{font-size:clamp(22px,4vw,32px);font-weight:800;color:var(--text);margin:0 0 24px;line-height:1.25}
+  .inst-text{font-size:15px;line-height:1.8;color:var(--text-secondary);margin-bottom:16px}
+  .inst-text strong{color:var(--text);font-weight:700}
+  .inst-text em{color:var(--star);font-style:normal;font-weight:600}
+  .inst-timeline{position:relative;padding-left:32px;margin:32px 0}
+  .inst-timeline::before{content:'';position:absolute;left:6px;top:8px;bottom:8px;width:2px;background:linear-gradient(180deg,var(--accent),rgba(217,65,62,.15))}
+  .inst-step{position:relative;margin-bottom:28px}
+  .inst-step::before{content:'';position:absolute;left:-29px;top:7px;width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px rgba(217,65,62,.4)}
+  .inst-step-num{font-size:11px;letter-spacing:4px;text-transform:uppercase;color:var(--accent);font-weight:800;margin-bottom:4px}
+  .inst-step-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px}
+  .inst-step-desc{font-size:14px;color:var(--text-secondary);line-height:1.6}
+  .inst-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;margin:24px 0}
+  .inst-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px}
+  .inst-card-label{font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--accent);font-weight:800;margin-bottom:8px}
+  .inst-card-text{font-size:14px;color:var(--text-secondary);line-height:1.7}
+  .inst-card-text strong{color:var(--text)}
+  .inst-faq{margin:24px 0}
+  .inst-faq details{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden}
+  .inst-faq summary{padding:16px 20px;font-size:15px;font-weight:700;color:var(--text);cursor:pointer;list-style:none}
+  .inst-faq summary::before{content:'+';display:inline-block;width:20px;font-weight:800;color:var(--accent);font-size:18px}
+  .inst-faq details[open] summary::before{content:'\2212'}
+  .inst-faq .inst-faq-body{padding:0 20px 16px;font-size:14px;color:var(--text-secondary);line-height:1.7}
+  .inst-final{text-align:center;padding:80px 20px}
+  .inst-final-title{font-size:clamp(28px,5vw,44px);font-weight:900;margin:0 0 16px}
+  .inst-final-sub{font-size:15px;color:var(--text-secondary);margin:0 auto 32px;max-width:480px;line-height:1.7}
+  .suggest-section{max-width:560px;margin:0 auto;padding:0 20px 60px}
+  .suggest-form{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:32px}
+  .suggest-title{font-size:18px;font-weight:800;color:var(--text);margin:0 0 6px}
+  .suggest-sub{font-size:13px;color:var(--text-secondary);margin:0 0 20px;line-height:1.6}
+  .suggest-textarea{width:100%;min-height:120px;padding:14px 16px;border-radius:10px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-size:14px;font-family:inherit;resize:vertical;outline:none}
+  .suggest-textarea:focus{border-color:var(--accent)}
+  .suggest-btn{margin-top:12px;padding:14px 32px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:15px;font-weight:700;cursor:pointer}
+  .suggest-btn:hover{background:var(--accent-hover)}
+  .flash-success{background:rgba(76,175,125,.12);border:1px solid var(--success);color:var(--success);padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:16px;text-align:center}
+  .flash-error{background:rgba(217,65,62,.12);border:1px solid var(--accent);color:var(--accent);padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:16px;text-align:center}
+  .admin-link{text-align:center;padding:0 20px 80px}
+  .admin-link a{font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:1px;opacity:.35;transition:opacity .3s}
+  .admin-link a:hover{opacity:1}
+  </style>
+</head>
+<body>
 
-<style>
-.inst-hero{position:relative;padding:100px 0 60px;text-align:center;overflow:hidden}
-.inst-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(217,65,62,.18) 0%,transparent 60%);pointer-events:none}
-.inst-hero-title{font-size:clamp(48px,10vw,96px);font-weight:900;letter-spacing:4px;text-transform:uppercase;background:linear-gradient(135deg,#d9413e 0%,#f5c518 50%,#d9413e 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin:0;line-height:1.05}
-.inst-hero-sub{font-size:clamp(12px,2.5vw,18px);letter-spacing:8px;text-transform:uppercase;color:var(--text-secondary);margin:12px 0 24px;font-weight:600}
-.inst-hero-tag{font-size:clamp(14px,2vw,17px);color:var(--text-secondary);max-width:560px;margin:0 auto 36px;line-height:1.7}
-.inst-chips{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin:0 auto 40px}
-.inst-chip{padding:6px 16px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;border:1px solid var(--border);background:var(--panel);color:var(--text-secondary)}
-.inst-chip.accent{border-color:var(--accent);color:var(--accent);background:rgba(217,65,62,.08)}
-.inst-cta{display:inline-block;padding:18px 48px;border-radius:12px;font-size:18px;font-weight:800;text-transform:uppercase;letter-spacing:2px;text-decoration:none;background:linear-gradient(135deg,#d9413e,#c03532);color:#fff;transition:transform .2s,box-shadow .2s;box-shadow:0 4px 24px rgba(217,65,62,.3)}
-.inst-cta:hover{transform:translateY(-3px);box-shadow:0 8px 32px rgba(217,65,62,.45)}
-.inst-cta-sm{display:inline-block;margin-top:16px;font-size:13px;color:var(--text-secondary);text-decoration:underline;text-underline-offset:3px}
-.inst-section{max-width:860px;margin:0 auto;padding:0 20px 72px}
-.inst-divider{width:60px;height:2px;background:var(--accent);margin:0 auto 64px;border-radius:1px}
-.inst-num{font-size:clamp(48px,8vw,72px);font-weight:900;-webkit-text-stroke:2px var(--accent);-webkit-text-fill-color:transparent;line-height:1;margin-bottom:4px}
-.inst-chap{font-size:11px;letter-spacing:6px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;font-weight:700}
-.inst-title{font-size:clamp(22px,4vw,32px);font-weight:800;color:var(--text);margin:0 0 24px;line-height:1.25}
-.inst-text{font-size:15px;line-height:1.8;color:var(--text-secondary);margin-bottom:16px}
-.inst-text strong{color:var(--text);font-weight:700}
-.inst-text em{color:var(--star);font-style:normal;font-weight:600}
-.inst-timeline{position:relative;padding-left:32px;margin:32px 0}
-.inst-timeline::before{content:'';position:absolute;left:6px;top:8px;bottom:8px;width:2px;background:linear-gradient(180deg,var(--accent),rgba(217,65,62,.15))}
-.inst-step{position:relative;margin-bottom:28px}
-.inst-step::before{content:'';position:absolute;left:-29px;top:7px;width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px rgba(217,65,62,.4)}
-.inst-step-num{font-size:11px;letter-spacing:4px;text-transform:uppercase;color:var(--accent);font-weight:800;margin-bottom:4px}
-.inst-step-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px}
-.inst-step-desc{font-size:14px;color:var(--text-secondary);line-height:1.6}
-.inst-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;margin:24px 0}
-.inst-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px}
-.inst-card-label{font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--accent);font-weight:800;margin-bottom:8px}
-.inst-card-text{font-size:14px;color:var(--text-secondary);line-height:1.7}
-.inst-card-text strong{color:var(--text)}
-.inst-faq{margin:24px 0}
-.inst-faq details{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden}
-.inst-faq summary{padding:16px 20px;font-size:15px;font-weight:700;color:var(--text);cursor:pointer;list-style:none}
-.inst-faq summary::before{content:'+';display:inline-block;width:20px;font-weight:800;color:var(--accent);font-size:18px}
-.inst-faq details[open] summary::before{content:'\2212'}
-.inst-faq .inst-faq-body{padding:0 20px 16px;font-size:14px;color:var(--text-secondary);line-height:1.7}
-.inst-final{text-align:center;padding:80px 20px}
-.inst-final-title{font-size:clamp(28px,5vw,44px);font-weight:900;margin:0 0 16px}
-.inst-final-sub{font-size:15px;color:var(--text-secondary);margin:0 auto 32px;max-width:480px;line-height:1.7}
-</style>
-
-<div class="inst-hero">
-  <h1 class="inst-hero-title">TRIXIFILMS</h1>
-  <p class="inst-hero-sub">L'application mobile</p>
-  <p class="inst-hero-tag">
-    Le cinema dans ta poche. Catalogue complet, bandes-annonces, notes, messages,
-    box partagees et equipe avec photos. Tout fonctionne, tout est gratuit.
-  </p>
-  <div class="inst-chips">
-    <span class="inst-chip accent">Version 1.0.0</span>
-    <span class="inst-chip">Android 7.0+</span>
-    <span class="inst-chip">Gratuit</span>
-    {% if apk_available %}<span class="inst-chip">{{ apk_size }} Mo</span>{% endif %}
+  <div class="inst-hero">
+    <h1 class="inst-hero-title">TRIXIFILMS</h1>
+    <p class="inst-hero-sub">L'application mobile</p>
+    <p class="inst-hero-tag">
+      Le cinema dans ta poche. Catalogue complet, bandes-annonces, notes, messages,
+      box partagees et equipe avec photos. Tout fonctionne, tout est gratuit.
+    </p>
+    <div class="inst-chips">
+      <span class="inst-chip accent">Version 1.0.0</span>
+      <span class="inst-chip">Android 7.0+</span>
+      <span class="inst-chip">Gratuit</span>
+      {% if apk_available %}<span class="inst-chip">{{ apk_size }} Mo</span>{% endif %}
+    </div>
+    {% if apk_available %}
+    <a href="{{ url_for('installation.download') }}" class="inst-cta">Telecharger l'APK</a>
+    <br><a class="inst-cta-sm" href="#comment-marche">Decouvrir comment ca marche</a>
+    {% else %}
+    <p style="color:var(--text-secondary);font-size:14px">APK en cours de preparation. Reviens bientot.</p>
+    {% endif %}
   </div>
-  {% if apk_available %}
-  <a href="{{ url_for('installation.download') }}" class="inst-cta">Telecharger l'APK</a>
-  <br><a class="inst-cta-sm" href="#comment-marche">Decouvrir comment ca marche</a>
-  {% else %}
-  <p style="color:var(--text-secondary);font-size:14px">APK en cours de preparation. Reviens bientot.</p>
-  {% endif %}
-</div>
 
-<div id="comment-marche"></div>
-<div class="inst-divider"></div>
+  <div id="comment-marche"></div>
+  <div class="inst-divider"></div>
 
-<div class="inst-section">
-  <div class="inst-num">00</div>
-  <div class="inst-chap">Installation</div>
-  <h2 class="inst-title">Installer l'application en 4 etapes</h2>
-  <div class="inst-timeline">
-    <div class="inst-step">
-      <div class="inst-step-num">Etape 01</div>
-      <div class="inst-step-title">Telecharger le fichier APK</div>
-      <div class="inst-step-desc">
-        Appuie sur le bouton <strong>"Telecharger l'APK"</strong> en haut de cette page.
-        Le fichier fait environ <strong>52 Mo</strong> -- utilise le WiFi si possible.
+  <div class="inst-section">
+    <div class="inst-num">00</div>
+    <div class="inst-chap">Installation</div>
+    <h2 class="inst-title">Installer l'application en 4 etapes</h2>
+    <div class="inst-timeline">
+      <div class="inst-step">
+        <div class="inst-step-num">Etape 01</div>
+        <div class="inst-step-title">Telecharger le fichier APK</div>
+        <div class="inst-step-desc">
+          Appuie sur le bouton <strong>"Telecharger l'APK"</strong> en haut de cette page.
+          Le fichier fait environ <strong>52 Mo</strong> -- utilise le WiFi si possible.
+        </div>
+      </div>
+      <div class="inst-step">
+        <div class="inst-step-num">Etape 02</div>
+        <div class="inst-step-title">Autoriser les sources inconnues</div>
+        <div class="inst-step-desc">
+          Va dans <strong>Parametres &gt; Securite &gt; Installer des applications inconnues</strong>
+          et active l'autorisation pour l'application que tu utilises (Fichiers, Navigateur...).
+          Android te demandera cette permission une seule fois.
+        </div>
+      </div>
+      <div class="inst-step">
+        <div class="inst-step-num">Etape 03</div>
+        <div class="inst-step-title">Installer le fichier</div>
+        <div class="inst-step-desc">
+          Ouvre le fichier <strong>TRIXIFILMS-1.0.0.apk</strong> depuis l'application Fichiers.
+          Appuie sur <strong>"Installer"</strong> et patiente quelques secondes.
+          L'icone TRIXIFILMS apparaitra sur ton ecran d'accueil.
+        </div>
+      </div>
+      <div class="inst-step">
+        <div class="inst-step-num">Etape 04</div>
+        <div class="inst-step-title">Creer ton compte et c'est parti</div>
+        <div class="inst-step-desc">
+          Ouvre l'application, appuie sur <strong>"S'inscrire"</strong>,
+          choisis un prenom et un mot de passe (8 caracteres minimum).
+          Tu es connecte. Tout est sauvegarde -- la prochaine fois, tu seras reconne automatiquement.
+        </div>
       </div>
     </div>
-    <div class="inst-step">
-      <div class="inst-step-num">Etape 02</div>
-      <div class="inst-step-title">Autoriser les sources inconnues</div>
-      <div class="inst-step-desc">
-        Va dans <strong>Parametres &gt; Securite &gt; Installer des applications inconnues</strong>
-        et active l'autorisation pour l'application que tu utilises (Fichiers, Navigateur...).
-        Android te demandera cette permission une seule fois.
+  </div>
+
+  <div class="inst-divider"></div>
+  <div class="inst-section">
+    <div class="inst-num">01</div>
+    <div class="inst-chap">Le catalogue et la recherche</div>
+    <h2 class="inst-title">Des milliers de films a portee de main</h2>
+    <p class="inst-text">
+      TRIXIFILMS connecte directement a <strong>Cinemeta</strong> (source IMDb) pour te proposer
+      un catalogue mondial de films. Chaque film a sa fiche complete avec affiche, bandes-annonces,
+      synopsis, equipe technique et notes de la communaute.
+    </p>
+    <p class="inst-text">
+      La recherche fonctionne par <strong>titre</strong>, <strong>realisateur</strong>,
+      <strong>scenariste</strong>, <strong>acteur</strong>, <strong>production</strong> ou
+      <strong>resume</strong>. Tu peux aussi filtrer par <em>genre</em> et par <em>origine</em>.
+    </p>
+    <div class="inst-grid">
+      <div class="inst-card">
+        <div class="inst-card-label">Recherche intelligente</div>
+        <div class="inst-card-text">Tape le nom d'un acteur, d'un realisateur ou d'un mot cle dans le resume et les resultats s'affichent en direct.</div>
       </div>
-    </div>
-    <div class="inst-step">
-      <div class="inst-step-num">Etape 03</div>
-      <div class="inst-step-title">Installer le fichier</div>
-      <div class="inst-step-desc">
-        Ouvre le fichier <strong>TRIXIFILMS-1.0.0.apk</strong> depuis l'application Fichiers.
-        Appuie sur <strong>"Installer"</strong> et patiente quelques secondes.
-        L'icone TRIXIFILMS apparaitra sur ton ecran d'accueil.
+      <div class="inst-card">
+        <div class="inst-card-label">Filtres avances</div>
+        <div class="inst-card-text">Genre (Action, Horreur, Animation...), origine (Francaise, Americaine, Japonaise...) -- combine les filtres pour affiner.</div>
       </div>
-    </div>
-    <div class="inst-step">
-      <div class="inst-step-num">Etape 04</div>
-      <div class="inst-step-title">Creer ton compte et c'est parti</div>
-      <div class="inst-step-desc">
-        Ouvre l'application, appuie sur <strong>"S'inscrire"</strong>,
-        choisis un prenom et un mot de passe (8 caracteres minimum).
-        Tu es connecte. Tout est sauvegarde -- la prochaine fois, tu seras reconne automatiquement.
+      <div class="inst-card">
+        <div class="inst-card-label">Top films</div>
+        <div class="inst-card-text">La page <strong>Top</strong> affiche les meilleurs films du moment, tries par notes de la communaute. Tu peux y ajouter tes coups de coeur.</div>
       </div>
     </div>
   </div>
-</div>
 
-<div class="inst-divider"></div><style>
-.inst-hero{position:relative;padding:100px 0 60px;text-align:center;overflow:hidden}
-.inst-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(217,65,62,.18) 0%,transparent 60%);pointer-events:none}
-.inst-hero-title{font-size:clamp(48px,10vw,96px);font-weight:900;letter-spacing:4px;text-transform:uppercase;background:linear-gradient(135deg,#d9413e 0%,#f5c518 50%,#d9413e 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin:0;line-height:1.05}
-.inst-hero-sub{font-size:clamp(12px,2.5vw,18px);letter-spacing:8px;text-transform:uppercase;color:var(--text-secondary);margin:12px 0 24px;font-weight:600}
-.inst-hero-tag{font-size:clamp(14px,2vw,17px);color:var(--text-secondary);max-width:560px;margin:0 auto 36px;line-height:1.7}
-.inst-chips{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin:0 auto 40px}
-.inst-chip{padding:6px 16px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;border:1px solid var(--border);background:var(--panel);color:var(--text-secondary)}
-.inst-chip.accent{border-color:var(--accent);color:var(--accent);background:rgba(217,65,62,.08)}
-.inst-cta{display:inline-block;padding:18px 48px;border-radius:12px;font-size:18px;font-weight:800;text-transform:uppercase;letter-spacing:2px;text-decoration:none;background:linear-gradient(135deg,#d9413e,#c03532);color:#fff;transition:transform .2s,box-shadow .2s;box-shadow:0 4px 24px rgba(217,65,62,.3)}
-.inst-cta:hover{transform:translateY(-3px);box-shadow:0 8px 32px rgba(217,65,62,.45)}
-.inst-cta-sm{display:inline-block;margin-top:16px;font-size:13px;color:var(--text-secondary);text-decoration:underline;text-underline-offset:3px}
-.inst-section{max-width:860px;margin:0 auto;padding:0 20px 72px}
-.inst-divider{width:60px;height:2px;background:var(--accent);margin:0 auto 64px;border-radius:1px}
-.inst-num{font-size:clamp(48px,8vw,72px);font-weight:900;-webkit-text-stroke:2px var(--accent);-webkit-text-fill-color:transparent;line-height:1;margin-bottom:4px}
-.inst-chap{font-size:11px;letter-spacing:6px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;font-weight:700}
-.inst-title{font-size:clamp(22px,4vw,32px);font-weight:800;color:var(--text);margin:0 0 24px;line-height:1.25}
-.inst-text{font-size:15px;line-height:1.8;color:var(--text-secondary);margin-bottom:16px}
-.inst-text strong{color:var(--text);font-weight:700}
-.inst-text em{color:var(--star);font-style:normal;font-weight:600}
-.inst-timeline{position:relative;padding-left:32px;margin:32px 0}
-.inst-timeline::before{content:'';position:absolute;left:6px;top:8px;bottom:8px;width:2px;background:linear-gradient(180deg,var(--accent),rgba(217,65,62,.15))}
-.inst-step{position:relative;margin-bottom:28px}
-.inst-step::before{content:'';position:absolute;left:-29px;top:7px;width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px rgba(217,65,62,.4)}
-.inst-step-num{font-size:11px;letter-spacing:4px;text-transform:uppercase;color:var(--accent);font-weight:800;margin-bottom:4px}
-.inst-step-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px}
-.inst-step-desc{font-size:14px;color:var(--text-secondary);line-height:1.6}
-.inst-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;margin:24px 0}
-.inst-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px}
-.inst-card-label{font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--accent);font-weight:800;margin-bottom:8px}
-.inst-card-text{font-size:14px;color:var(--text-secondary);line-height:1.7}
-.inst-card-text strong{color:var(--text)}
-.inst-faq{margin:24px 0}
-.inst-faq details{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden}
-.inst-faq summary{padding:16px 20px;font-size:15px;font-weight:700;color:var(--text);cursor:pointer;list-style:none}
-.inst-faq summary::before{content:'+';display:inline-block;width:20px;font-weight:800;color:var(--accent);font-size:18px}
-.inst-faq details[open] summary::before{content:'\2212'}
-.inst-faq .inst-faq-body{padding:0 20px 16px;font-size:14px;color:var(--text-secondary);line-height:1.7}
-.inst-final{text-align:center;padding:80px 20px}
-.inst-final-title{font-size:clamp(28px,5vw,44px);font-weight:900;margin:0 0 16px}
-.inst-final-sub{font-size:15px;color:var(--text-secondary);margin:0 auto 32px;max-width:480px;line-height:1.7}
-</style>
-
-
-{# CHAPITRE 01 #}
-<div class="inst-divider"></div>
-<div class="inst-section">
-  <div class="inst-num">01</div>
-  <div class="inst-chap">Le catalogue et la recherche</div>
-  <h2 class="inst-title">Des milliers de films a portee de main</h2>
-  <p class="inst-text">
-    TRIXIFILMS connecte directement a <strong>Cinemeta</strong> (source IMDb) pour te proposer
-    un catalogue mondial de films. Chaque film a sa fiche complete avec affiche, bandes-annonces,
-    synopsis, equipe technique et notes de la communaute.
-  </p>
-  <p class="inst-text">
-    La recherche fonctionne par <strong>titre</strong>, <strong>realisateur</strong>,
-    <strong>scenariste</strong>, <strong>acteur</strong>, <strong>production</strong> ou
-    <strong>resume</strong>. Tu peux aussi filtrer par <em>genre</em> et par <em>origine</em>
-    (americaine, francaise, japonaise...).
-  </p>
-  <div class="inst-grid">
-    <div class="inst-card">
-      <div class="inst-card-label">Recherche intelligente</div>
-      <div class="inst-card-text">Tape le nom d'un acteur, d'un realisateur ou d'un mot cle dans le resume et les resultats s'affichent en direct.</div>
-    </div>
-    <div class="inst-card">
-      <div class="inst-card-label">Filtres avances</div>
-      <div class="inst-card-text">Genre (Action, Horreur, Animation...), origine (Francaise, Americaine, Japonaise...) -- combine les filtres pour affiner.</div>
-    </div>
-    <div class="inst-card">
-      <div class="inst-card-label">Top films</div>
-      <div class="inst-card-text">La page <strong>Top</strong> affiche les meilleurs films du moment, tries par notes de la communaute. Tu peux y ajouter tes coups de coeur.</div>
-    </div>
-  </div>
-</div>
-
-{# CHAPITRE 02 #}
-<div class="inst-divider"></div>
-<div class="inst-section">
-  <div class="inst-num">02</div>
-  <div class="inst-chap">Les fiches de films</div>
-  <h2 class="inst-title">Tout savoir sur un film en un seul ecran</h2>
-  <p class="inst-text">Chaque film dispose d'une <strong>fiche complete</strong> avec trois sections :</p>
-  <div class="inst-grid">
-    <div class="inst-card">
-      <div class="inst-card-label">Synopsis Wikipedla</div>
-      <div class="inst-card-text">Le resume provient directement de <strong>Wikipedia en francais</strong>. Un seul synopsis, fiable et complet, avec le contexte du film.</div>
-    </div>
-    <div class="inst-card">
-      <div class="inst-card-label">Fiche technique</div>
-      <div class="inst-card-text">Annee, duree, date de sortie, pays d'origine, note IMDb et genres -- presente sous forme de <strong>tuiles colorees</strong> faciles a lire.</div>
-    </div>
-    <div class="inst-card">
-      <div class="inst-card-label">Equipe et distribution</div>
-      <div class="inst-card-text">Realisateurs, scenaristes et acteurs avec leurs <strong>photos Wikipedla</strong>. Appuie sur n'importe quelle personne pour decouvrir <strong>tous les films</strong> qu'elle a faits.</div>
-    </div>
-  </div>
-  <p class="inst-text">
-    La filmographie de chaque personne est generee en temps reel via <strong>IMDb + Wlkidata</strong> :
-    photos, annees, affiches. C'est un univers de decouvertes a chaque clic.
-  </p>
-</div>
-
-{# CHAPITRE 03 #}
-<div class="inst-divider"></div>
-<div class="inst-section">
-  <div class="inst-num">03</div>
-  <div class="inst-chap">Bandes-annonces et shorts</div>
-  <h2 class="inst-title">Le cinema en mouvement, sans fin</h2>
-  <p class="inst-text">
-    La page <strong>Bandes-annonces</strong> propose un flux vertical de videos YouTube
-    integrees directement dans l'application. Un veritable <strong>mode TikTok du cinema</strong>.
-  </p>
-  <div class="inst-grid">
-    <div class="inst-card">
-      <div class="inst-card-label">Infini et aleatoire</div>
-      <div class="inst-card-text">Les videos se chargent automatiquement par lots de 10, melangees et venues de <strong>genres varies</strong> (Action, Horreur, Sci-Fi, Animation...). Tu ne verras jamais la deuxieme fois la meme video.</div>
-    </div>
-    <div class="inst-card">
-      <div class="inst-card-label">Swipe vertical</div>
-      <div class="inst-card-text">Glisse vers le bas pour passer a la video suivante, vers le haut pour revenir en arriere. La vidéo se charge en plein ecran avec le poster du film.</div>
-    </div>
-    <div class="inst-card">
-      <div class="inst-card-label">Acces direct</div>
-      <div class="inst-card-text">Le bouton flottant <strong>play</strong> est visible depuis toutes les pages de l'application -- un seul appuie pour plonger dans les bandes-annonces.</div>
-    </div>
-  </div>
-</div>
-
-{# CHAPITRE 04 #}
-<div class="inst-divider"></div>
-<div class="inst-section">
-  <div class="inst-num">04</div>
-  <div class="inst-chap">Notes et messages</div>
-  <h2 class="inst-title">Ta communaute de cinephiles</h2>
-  <p class="inst-text">
-    Chaque film a sa propre page de <strong>discussion</strong>. Tu peux laisser des notes (1 a 5 etoiles),
-    ecrire des messages et lire ceux des autres utilisateurs.
-  </p>
-  <div class="inst-grid">
-    <div class="inst-card">
-      <div class="inst-card-label">Anti-usurpation</div>
-      <div class="inst-card-text">Le serveur <strong>force le vrai prenom</strong> de ton compte sur chaque message et note. Personne ne peut se faire passer pour quelqu'un d'autre.</div>
-    </div>
-    <div class="inst-card">
-      <div class="inst-card-label">Anonymat respecte</div>
-      <div class="inst-card-text">Si tu n'es pas connecte, les messages et notes sont publiés sous le nom <strong>"Anonyme"</strong> -- pas de fausse identite possible.</div>
-    </div>
-  </div>
-</div>
-
-{# CHAPITRE 05 #}
-<div class="inst-divider"></div>
-<div class="inst-section">
-  <div class="inst-num">05</div>
-  <div class="inst-chap">Les box de films</div>
-  <h2 class="inst-title">Cree, partage, decouvre ensemble</h2>
-  <p class="inst-text">
-    Les <strong>Box</strong> sont des collections de films que tu peux creer, remplir et partager
-    avec tes amis via un <strong>code a 8 caracteres</strong>.
-  </p>
-  <div class="inst-grid">
-    <div class="inst-card">
-      <div class="inst-card-label">Creer une box</div>
-      <div class="inst-card-text">Donne-lui un nom, ajoute des films depuis la recherche Cinemeta/TMDB. Chaque box peut etre <strong>publique</strong> ou <strong>privee</strong>.</div>
-    </div>
-    <div class="inst-card">
-      <div class="inst-card-label">Partager par code</div>
-      <div class="inst-card-text">Chaque box a un <strong>code unique</strong> (ex: A3B7K2NP). Envoie-le a tes amis -- ils rejoignent en un appuie.</div>
-    </div>
-    <div class="inst-card">
-      <div class="inst-card-label">Membres en lecture seule</div>
-      <div class="inst-card-text">Les membres invites peuvent <strong>voir</strong> les films mais pas les modifier -- seul le proprietaire gere le contenu.</div>
-    </div>
-    <div class="inst-card">
-      <div class="inst-card-label">Badge partage</div>
-      <div class="inst-card-text">Un badge indique <strong>"Box partagee par [nom]"</strong> -- tu sais toujours d'ou vient la recommandation.</div>
-    </div>
-  </div>
-</div>
-
-{# CHAPITRE 06 #}
-<div class="inst-divider"></div>
-<div class="inst-section">
-  <div class="inst-num">06</div>
-  <div class="inst-chap">Compte et securite</div>
-  <h2 class="inst-title">Concu pour durer, pas pour espionner</h2>
-  <p class="inst-text">La securite est prise tres au serieux. Voici ce qui protege ton compte :</p>
-  <div class="inst-grid">
-    <div class="inst-card">
-      <div class="inst-card-label">Mots de passe hashes</div>
-      <div class="inst-card-text">Tes mots de passe sont <strong>hashes</strong> (irreversibles) via Werkzeug. Meme en cas de fuite, ton mot de passe reste inutilisable.</div>
-    </div>
-    <div class="inst-card">
-      <div class="inst-card-label">Session 7 jours</div>
-      <div class="inst-card-text">Un token de rafraichissement dure <strong>7 jours</strong>. Tu quittes l'app et tu reviens : toujours connecte.</div>
-    </div>
-    <div class="inst-card">
-      <div class="inst-card-label">Stockage chiffre</div>
-      <div class="inst-card-text">Les tokens sont sauvegardes dans le <strong>Keystore Android</strong> -- un coffre-fort materiel inaccessible aux autres apps.</div>
-    </div>
-    <div class="inst-card">
-      <div class="inst-card-label">Limites anti-abus</div>
-      <div class="inst-card-text">Connexion : <strong>8 essais / 15 min</strong> puis blocage. Messages : <strong>10 / min</strong>. Notes : <strong>20 / min</strong>.</div>
-    </div>
-    <div class="inst-card">
-      <div class="inst-card-label">HTTPS partout</div>
-      <div class="inst-card-text">Toutes les communications entre l'app et le serveur sont <strong>chiffrees</strong>. Aucune donnee ne voyage en clair.</div>
-    </div>
-    <div class="inst-card">
-      <div class="inst-card-label">Aucune donnee volee</div>
-      <div class="inst-card-text">TRIXIFILMS ne collecte <strong>aucune metrique</strong>, ne vend <strong>aucune donnee</strong>, n'affiche <strong>aucune pub</strong>.</div>
-    </div>
-  </div>
-</div>
-
-{# FAQ #}
-<div class="inst-divider"></div>
-<div class="inst-section">
-  <div class="inst-num">07</div>
-  <div class="inst-chap">Questions frequentes</div>
-  <h2 class="inst-title">FAQ</h2>
-  <div class="inst-faq">
-    <details>
-      <summary>L'application est-elle disponible sur le Play Store ?</summary>
-      <div class="inst-faq-body">
-        Pas encore. Pour l'installer, telecharge le fichier APK depuis cette page et autorise l'installation depuis les sources inconnues dans les parametres de ton telephone.
+  <div class="inst-divider"></div>
+  <div class="inst-section">
+    <div class="inst-num">02</div>
+    <div class="inst-chap">Les fiches de films</div>
+    <h2 class="inst-title">Tout savoir sur un film en un seul ecran</h2>
+    <p class="inst-text">Chaque film dispose d'une <strong>fiche complete</strong> avec trois sections :</p>
+    <div class="inst-grid">
+      <div class="inst-card">
+        <div class="inst-card-label">Synopsis Wikipedla</div>
+        <div class="inst-card-text">Le resume provient directement de <strong>Wikipedia en francais</strong>. Un seul synopsis, fiable et complet, avec le contexte du film.</div>
       </div>
-    </details>
-    <details>
-      <summary>Est-ce que l'application fonctionne hors-ligne ?</summary>
-      <div class="inst-faq-body">
-        Non. TRIXIFILMS necessite une connexion Internet pour charger les films, les bandes-annonces et synchroniser tes notes et messages avec le serveur.
+      <div class="inst-card">
+        <div class="inst-card-label">Fiche technique</div>
+        <div class="inst-card-text">Annee, duree, date de sortie, pays d'origine, note IMDb et genres -- presente sous forme de <strong>tuiles colorees</strong> faciles a lire.</div>
       </div>
-    </details>
-    <details>
-      <summary>Puis-je utiliser TRIXIFILMS sur iPhone ?</summary>
-      <div class="inst-faq-body">
-        Actuellement, seules les appareils Android sont supportes. Un portage iOS est envisage pour le futur.
+      <div class="inst-card">
+        <div class="inst-card-label">Equipe et distribution</div>
+        <div class="inst-card-text">Realisateurs, scenaristes et acteurs avec leurs <strong>photos Wikipedla</strong>. Appuie sur n'importe quelle personne pour decouvrir <strong>tous les films</strong> qu'elle a faits.</div>
       </div>
-    </details>
-    <details>
-      <summary>Comment signaler un bug ou proposer une amelioration ?</summary>
-      <div class="inst-faq-body">
-        Contacte-nous via le site web TRIXIFILMS en laissant un message sur n'importe quel film, ou directement via GitHub : github.com/vichbcode/TRIXIFILMS/issues.
-      </div>
-    </details>
-    <details>
-      <summary>Est-ce que mes donnees sont revendues ?</summary>
-      <div class="inst-faq-body">
-        Non. TRIXIFILMS ne collecte, ne stocke et ne revend aucune donnee personnelle. Tes notes, messages et preferences restent strictement prives et ne servent qu'a faire fonctionner l'application.
-      </div>
-    </details>
+    </div>
+    <p class="inst-text">
+      La filmographie de chaque personne est generee en temps reel via <strong>IMDb + Wlkidata</strong> :
+      photos, annees, affiches. C'est un univers de decouvertes a chaque clic.
+    </p>
   </div>
-</div>
 
-{# FOOTER CTA #}
-<div class="inst-divider"></div>
-<div class="inst-final">
-  <h2 class="inst-final-title">Rejoins TRIXIFILMS</h2>
-  <p class="inst-final-sub">
-    Le cinema est un art partage. Cree un compte, explore le catalogue, note tes films preferes
-    et partage tes decouvertes avec tes amis.
-  </p>
-  {% if apk_available %}
-  <a href="{{ url_for('installation.download') }}" class="inst-cta">Telecharger l'APK</a>
-  {% endif %}
-  <p style="margin-top:24px;font-size:12px;color:var(--muted);letter-spacing:2px;text-transform:uppercase">
-    TRIXIFILMS v1.0.0 -- Fait avec passion
-  </p>
-</div>
+  <div class="inst-divider"></div>
+  <div class="inst-section">
+    <div class="inst-num">03</div>
+    <div class="inst-chap">Bandes-annonces et shorts</div>
+    <h2 class="inst-title">Le cinema en mouvement, sans fin</h2>
+    <p class="inst-text">
+      La page <strong>Bandes-annonces</strong> propose un flux vertical de videos YouTube
+      integrees directement dans l'application. Un veritable <strong>mode TikTok du cinema</strong>.
+    </p>
+    <div class="inst-grid">
+      <div class="inst-card">
+        <div class="inst-card-label">Infini et aleatoire</div>
+        <div class="inst-card-text">Les videos se chargent automatiquement par lots de 10, melangees et venues de <strong>genres varies</strong> (Action, Horreur, Sci-Fi, Animation...). Tu ne verras jamais la deuxieme fois la meme video.</div>
+      </div>
+      <div class="inst-card">
+        <div class="inst-card-label">Swipe vertical</div>
+        <div class="inst-card-text">Glisse vers le bas pour passer a la video suivante, vers le haut pour revenir en arriere. La video se charge en plein ecran avec le poster du film.</div>
+      </div>
+      <div class="inst-card">
+        <div class="inst-card-label">Acces direct</div>
+        <div class="inst-card-text">Le bouton flottant <strong>play</strong> est visible depuis toutes les pages de l'application -- un seul appuie pour plonger dans les bandes-annonces.</div>
+      </div>
+    </div>
+  </div>
 
-{% endblock %}
+  <div class="inst-divider"></div>
+  <div class="inst-section">
+    <div class="inst-num">04</div>
+    <div class="inst-chap">Notes et messages</div>
+    <h2 class="inst-title">Ta communaute de cinephiles</h2>
+    <p class="inst-text">
+      Chaque film a sa propre page de <strong>discussion</strong>. Tu peux laisser des notes (1 a 5 etoiles),
+      ecrire des messages et lire ceux des autres utilisateurs.
+    </p>
+    <div class="inst-grid">
+      <div class="inst-card">
+        <div class="inst-card-label">Anti-usurpation</div>
+        <div class="inst-card-text">Le serveur <strong>force le vrai prenom</strong> de ton compte sur chaque message et note. Personne ne peut se faire passer pour quelqu'un d'autre.</div>
+      </div>
+      <div class="inst-card">
+        <div class="inst-card-label">Anonymat respecte</div>
+        <div class="inst-card-text">Si tu n'es pas connecte, les messages et notes sont publies sous le nom <strong>"Anonyme"</strong> -- pas de fausse identite possible.</div>
+      </div>
+    </div>
+  </div>
 
+  <div class="inst-divider"></div>
+  <div class="inst-section">
+    <div class="inst-num">05</div>
+    <div class="inst-chap">Les box de films</div>
+    <h2 class="inst-title">Cree, partage, decouvre ensemble</h2>
+    <p class="inst-text">
+      Les <strong>Box</strong> sont des collections de films que tu peux creer, remplir et partager
+      avec tes amis via un <strong>code a 8 caracteres</strong>.
+    </p>
+    <div class="inst-grid">
+      <div class="inst-card">
+        <div class="inst-card-label">Creer une box</div>
+        <div class="inst-card-text">Donne-lui un nom, ajoute des films depuis la recherche Cinemeta/TMDB. Chaque box peut etre <strong>publique</strong> ou <strong>privee</strong>.</div>
+      </div>
+      <div class="inst-card">
+        <div class="inst-card-label">Partager par code</div>
+        <div class="inst-card-text">Chaque box a un <strong>code unique</strong> (ex: A3B7K2NP). Envoie-le a tes amis -- ils rejoignent en un appuie.</div>
+      </div>
+      <div class="inst-card">
+        <div class="inst-card-label">Membres en lecture seule</div>
+        <div class="inst-card-text">Les membres invites peuvent <strong>voir</strong> les films mais pas les modifier -- seul le proprietaire gere le contenu.</div>
+      </div>
+      <div class="inst-card">
+        <div class="inst-card-label">Badge partage</div>
+        <div class="inst-card-text">Un badge indique <strong>"Box partagee par [nom]"</strong> -- tu sais toujours d'ou vient la recommandation.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="inst-divider"></div>
+  <div class="inst-section">
+    <div class="inst-num">06</div>
+    <div class="inst-chap">Compte et securite</div>
+    <h2 class="inst-title">Concu pour durer, pas pour espionner</h2>
+    <p class="inst-text">La securite est prise tres au serieux. Voici ce qui protege ton compte :</p>
+    <div class="inst-grid">
+      <div class="inst-card">
+        <div class="inst-card-label">Mots de passe hashes</div>
+        <div class="inst-card-text">Tes mots de passe sont <strong>hashes</strong> (irreversibles) via Werkzeug. Meme en cas de fuite, ton mot de passe reste inutilisable.</div>
+      </div>
+      <div class="inst-card">
+        <div class="inst-card-label">Session 7 jours</div>
+        <div class="inst-card-text">Un token de rafraichissement dure <strong>7 jours</strong>. Tu quittes l'app et tu reviens : toujours connecte.</div>
+      </div>
+      <div class="inst-card">
+        <div class="inst-card-label">Stockage chiffre</div>
+        <div class="inst-card-text">Les tokens sont sauvegardes dans le <strong>Keystore Android</strong> -- un coffre-fort materiel inaccessible aux autres apps.</div>
+      </div>
+      <div class="inst-card">
+        <div class="inst-card-label">Limites anti-abus</div>
+        <div class="inst-card-text">Connexion : <strong>8 essais / 15 min</strong> puis blocage. Messages : <strong>10 / min</strong>. Notes : <strong>20 / min</strong>.</div>
+      </div>
+      <div class="inst-card">
+        <div class="inst-card-label">HTTPS partout</div>
+        <div class="inst-card-text">Toutes les communications entre l'app et le serveur sont <strong>chiffrees</strong>. Aucune donnee ne voyage en clair.</div>
+      </div>
+      <div class="inst-card">
+        <div class="inst-card-label">Aucune donnee volee</div>
+        <div class="inst-card-text">TRIXIFILMS ne collecte <strong>aucune metrique</strong>, ne vend <strong>aucune donnee</strong>, n'affiche <strong>aucune pub</strong>.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="inst-divider"></div>
+  <div class="inst-section">
+    <div class="inst-num">07</div>
+    <div class="inst-chap">Questions frequentes</div>
+    <h2 class="inst-title">FAQ</h2>
+    <div class="inst-faq">
+      <details>
+        <summary>L'application est-elle disponible sur le Play Store ?</summary>
+        <div class="inst-faq-body">
+          Pas encore. Pour l'installer, telecharge le fichier APK depuis cette page et autorise l'installation depuis les sources inconnues dans les parametres de ton telephone.
+        </div>
+      </details>
+      <details>
+        <summary>Est-ce que l'application fonctionne hors-ligne ?</summary>
+        <div class="inst-faq-body">
+          Non. TRIXIFILMS necessite une connexion Internet pour charger les films, les bandes-annonces et synchroniser tes notes et messages avec le serveur.
+        </div>
+      </details>
+      <details>
+        <summary>Puis-je utiliser TRIXIFILMS sur iPhone ?</summary>
+        <div class="inst-faq-body">
+          Actuellement, seules les appareils Android sont supportes. Un portage iOS est envisage pour le futur.
+        </div>
+      </details>
+      <details>
+        <summary>Est-ce que mes donnees sont revendues ?</summary>
+        <div class="inst-faq-body">
+          Non. TRIXIFILMS ne collecte, ne stocke et ne revend aucune donnee personnelle. Tes notes, messages et preferences restent strictement prives et ne servent qu'a faire fonctionner l'application.
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <div class="inst-divider"></div>
+  <div class="suggest-section">
+    <div class="suggest-form">
+      <h3 class="suggest-title">Propose une amelioration</h3>
+      <p class="suggest-sub">Tu as une idee pour rendre TRIXIFILMS mieux ? Dis-le nous ici.</p>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for cat, msg in messages %}
+            <div class="flash-{{ cat }}">{{ msg }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+      <form method="post" action="{{ url_for('installation.suggest') }}">
+        <textarea name="message" class="suggest-textarea" placeholder="Decris ton idee ou ton amelioration..." maxlength="2000" required></textarea>
+        <button type="submit" class="suggest-btn">Envoyer</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="inst-final">
+    <h2 class="inst-final-title">Rejoins TRIXIFILMS</h2>
+    <p class="inst-final-sub">
+      Le cinema est un art partage. Cree un compte, explore le catalogue, note tes films preferes
+      et partage tes decouvertes avec tes amis.
+    </p>
+    {% if apk_available %}
+    <a href="{{ url_for('installation.download') }}" class="inst-cta">Telecharger l'APK</a>
+    {% endif %}
+    <p style="margin-top:24px;font-size:12px;color:var(--muted);letter-spacing:2px;text-transform:uppercase">
+      TRIXIFILMS v1.0.0
+    </p>
+  </div>
+
+  <div class="admin-link">
+    <a href="{{ url_for('installation.admin') }}">Administration</a>
+  </div>
+
+</body>
+</html>

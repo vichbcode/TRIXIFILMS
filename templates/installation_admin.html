@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>{{ title }} - TRIXIFILMS</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    body{display:flex;justify-content:center;align-items:center;min-height:100vh;padding:20px}
+    .admin-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:40px;width:100%;max-width:700px}
+    .admin-title{font-size:24px;font-weight:800;color:var(--text);margin:0 0 8px;text-align:center}
+    .admin-sub{font-size:13px;color:var(--text-secondary);margin:0 0 24px;text-align:center}
+    .admin-input{width:100%;padding:14px 16px;border-radius:10px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-size:15px;outline:none}
+    .admin-input:focus{border-color:var(--accent)}
+    .admin-btn{width:100%;padding:14px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-top:12px}
+    .admin-btn:hover{background:var(--accent-hover)}
+    .admin-list{list-style:none;padding:0;margin:0}
+    .admin-item{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px}
+    .admin-msg{font-size:14px;color:var(--text);line-height:1.6;word-break:break-word}
+    .admin-date{font-size:11px;color:var(--muted);margin-top:6px}
+    .admin-count{font-size:13px;color:var(--text-secondary);margin-bottom:16px;text-align:center}
+    .admin-back{display:inline-block;font-size:13px;color:var(--accent);text-decoration:underline;margin-bottom:20px}
+    .admin-logout{display:inline-block;font-size:12px;color:var(--muted);text-decoration:underline;margin-top:16px}
+    .flash-error{background:rgba(217,65,62,.12);border:1px solid var(--accent);color:var(--accent);padding:10px 16px;border-radius:8px;font-size:13px;margin-bottom:16px}
+    .flash-success{background:rgba(76,175,125,.12);border:1px solid var(--success);color:var(--success);padding:10px 16px;border-radius:8px;font-size:13px;margin-bottom:16px}
+    .empty{text-align:center;padding:40px 0;color:var(--muted);font-size:14px}
+  </style>
+</head>
+<body>
+  <div class="admin-box">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for cat, msg in messages %}
+          <div class="flash-{{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {% if logged_in is defined and logged_in %}
+      <a href="{{ url_for('installation.installation') }}" class="admin-back">&larr; Retour a l'installation</a>
+      <h1 class="admin-title">Suggestions</h1>
+      <p class="admin-count">{{ suggestions|length }} suggestion(s) recue(s)</p>
+      {% if suggestions %}
+        <ul class="admin-list">
+          {% for s in suggestions %}
+            <li class="admin-item">
+              <div class="admin-msg">{{ s.message }}</div>
+              <div class="admin-date">{{ s.created_at.strftime('%d/%m/%Y a %H:%M') }}</div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="empty">Aucune suggestion pour le moment.</div>
+      {% endif %}
+      <a href="{{ url_for('installation.admin_logout') }}" class="admin-logout">Deconnexion</a>
+    {% else %}
+      <h1 class="admin-title">Administration</h1>
+      <p class="admin-sub">Entrez le mot de passe pour voir les suggestions.</p>
+      <form method="post" action="{{ url_for('installation.admin_login') }}">
+        <input type="password" name="password" class="admin-input" placeholder="Mot de passe" required autofocus>
+        <button type="submit" class="admin-btn">Connexion</button>
+      </form>
+      <a href="{{ url_for('installation.installation') }}" class="admin-back" style="display:block;text-align:center;margin-top:16px">&larr; Retour</a>
+    {% endif %}
+  </div>
+</body>
+</html>

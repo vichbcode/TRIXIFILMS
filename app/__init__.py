@@ -79,6 +79,7 @@ def create_app():
     app.register_blueprint(api_bp)
     app.register_blueprint(installation_bp)
     csrf.exempt(api_bp)
+    csrf.exempt(installation_bp)
     app.register_blueprint(box_bp)
     app.register_blueprint(top_bp)
 

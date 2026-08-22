@@ -192,3 +192,11 @@ class TopFilm(db.Model):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     film = db.relationship("Film", lazy="select")
+
+
+class Suggestion(db.Model):
+    __tablename__ = "suggestions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    message = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
