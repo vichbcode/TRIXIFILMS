@@ -71,11 +71,13 @@ def create_app():
     from app.routes.api import api_bp
     from app.routes.box import box_bp
     from app.routes.top import top_bp
+    from app.routes.installation import installation_bp
     app.register_blueprint(main_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(tmdb_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(api_bp)
+    app.register_blueprint(installation_bp)
     csrf.exempt(api_bp)
     app.register_blueprint(box_bp)
     app.register_blueprint(top_bp)
