@@ -170,7 +170,9 @@ def trailer_embed(video_id: str):
     if not re.match(r"^[A-Za-z0-9_-]{6,20}$", video_id):
         return Response("Not found", status=404)
     autoplay = 1 if request.args.get("autoplay") == "1" else 0
-    return render_template("trailer.html", video_id=video_id, autoplay=autoplay)
+    hl = re.match(r"^[a-z]{2}(-[A-Z]{2})?$", request.args.get("hl", "")) and \
+        request.args.get("hl") or "fr"
+    return render_template("trailer.html", video_id=video_id, autoplay=autoplay, hl=hl)
 
 
 @main_bp.route("/")

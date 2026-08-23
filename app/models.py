@@ -143,6 +143,8 @@ class Box(db.Model):
     nom = Column(String(200), nullable=False)
     description = Column(Text, default="")
     is_public = Column(Boolean, default=True)
+    share_code = Column(String(12), unique=True, nullable=True, index=True)
+    member_can_edit = Column(Boolean, default=False, nullable=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     share_code = Column(String(12), unique=True, nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)

@@ -728,8 +728,41 @@ def api_tmdb_search():
     return jsonify({"results": out})
 
 
-def _person_filmography_wikidata(name):
-    """Filmographie sans cle API : IMDb suggestions -> Wikidata SPARQL."""
+def _norm_name(s):
+    import unicodedata
+    s = (s or "").lower().strip()
+    s = unicodedata.normalize("NFD", s)
+    return "".join(c for c in s if unicodedata.category(c) != "Mn")
+
+
+def _wd_entities(http_req, ua, qids):
+    """Recupere plusieurs entites Wikidata en peu d'appels (wbgetentities)."""
+    out = {}
+    uniq = list(dict.fromkeys(qids))
+    for i in range(0, len(uniq), 50):
+        chunk = uniq[i:i + 50]
+        try:
+            rr = http_req.get(
+                "https://www.wikidata.org/w/api.php",
+                params={"action": "wbgetentities", "format": "json",
+                        "ids": "|".join(chunk),
+                        "props": "labels|claims", "languages": "fr|en"},
+                headers=ua, timeout=25)
+            rr.raise_for_status()
+            data = rr.json()
+            if "error" not in data:
+                out.update(data.get("entities", {}))
+        except Exception:
+            current_app.logger.warning("Wikidata EntityData batch failed")
+    return out
+
+
+def _person_filmography_wikidata(name, strict=False):
+    """Filmographie sans cle API : IMDb suggestions -> Wikidata EntityData.
+
+    strict=True : n'accepte que la personne dont le nom correspond exactement
+    a la recherche (utilise pour la recherche de films par personne).
+    """
     import re as _re
     import requests as http_req
     ua = {"User-Agent": "TRIXIFILMS/1.0 (contact: app)"}
@@ -745,27 +778,74 @@ def _person_filmography_wikidata(name):
     except Exception:
         current_app.logger.exception("IMDb suggestions failed")
         return None, []
-    person = next((e for e in entries
-                   if str(e.get("id", "")).startswith("nm")
-                   and str(e.get("l", "")).lower() == name.lower()), None)
-    person = person or next(
-        (e for e in entries if str(e.get("id", "")).startswith("nm")), None)
-    if not person:
+
+    wanted = _norm_name(name)
+    candidates = [e for e in entries if _re.fullmatch(r"nm\d+", str(e.get("id", "")))][:6]
+    if not candidates:
         return None, []
-    nmid = str(person["id"])
-    if not _re.fullmatch(r"nm\d+", nmid):
+    exact = next((e for e in candidates if _norm_name(e.get("l", "")) == wanted), None)
+
+    # Correspondance IMDb -> QID Wikidata (requete indexee, rapide).
+    shortlist = candidates[:4]
+    nmids = " ".join('"%s"' % e["id"] for e in shortlist)
+    resolve_q = ("SELECT ?imdb ?p WHERE { VALUES ?imdb { %s } "
+                 "?p wdt:P345 ?imdb }" % nmids)
+    nm_to_qid = {}
+    try:
+        rr = http_req.get(
+            "https://query.wikidata.org/sparql",
+            params={"query": resolve_q},
+            headers={**ua, "Accept": "application/sparql-results+json"},
+            timeout=12)
+        rr.raise_for_status()
+        for row in rr.json().get("results", {}).get("bindings", []):
+            imdb = row.get("imdb", {}).get("value", "")
+            uri = row.get("p", {}).get("value", "")
+            qid = uri.rsplit("/", 1)[-1]
+            if imdb.startswith("nm") and qid.startswith("Q"):
+                nm_to_qid[imdb] = qid
+    except Exception:
+        current_app.logger.exception("Wikidata QID lookup failed")
+
+    # Resolution par labels uniquement si aucun nom exact cote IMDb :
+    # evite les homonymes renvoyes par les suggestions.
+    resolved = None
+    if not exact and nm_to_qid:
+        ents = _wd_entities(
+            http_req, ua,
+            [nm_to_qid[e["id"]] for e in shortlist if e["id"] in nm_to_qid])
+        for e in shortlist:
+            ent = ents.get(nm_to_qid.get(e["id"], "")) or {}
+            labels = set()
+            for lang in ("fr", "en"):
+                lab = ent.get("labels", {}).get(lang, {}).get("value")
+                if lab:
+                    labels.add(lab)
+            if any(_norm_name(lab) == wanted for lab in labels):
+                resolved = e
+                break
+
+    person = exact or resolved
+    if strict and person is None:
+        return None, []
+    person = person or candidates[0]
+    if not _re.fullmatch(r"nm\d+", str(person["id"])):
+        return None, []
+    pqid = nm_to_qid.get(str(person["id"]))
+    if not pqid:
         return None, []
 
+    # Filmographie : requete SPARQL minimale (le label service rendait la
+    # requete 40x plus lente). Labels/dates/imdb recuperes apres coup via
+    # Special:EntityData (CDN, rapide et fiable).
     sparql = """
-    SELECT DISTINCT ?film ?filmLabel ?imdb ?date WHERE {
+    SELECT ?film ?role WHERE {
       ?p wdt:P345 "%s".
-      { ?film wdt:P57 ?p } UNION { ?film wdt:P58 ?p }
-      UNION { ?film wdt:P161 ?p } UNION { ?film wdt:P162 ?p }
-      ?film wdt:P345 ?imdb.
-      OPTIONAL { ?film wdt:P577 ?date }
-      SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". }
-    } ORDER BY DESC(?date) LIMIT 60
-    """ % nmid
+      { ?film wdt:P57 ?p . BIND("director" AS ?role) }
+      UNION { ?film wdt:P58 ?p . BIND("writer" AS ?role) }
+      UNION { ?film wdt:P161 ?p . BIND("actor" AS ?role) }
+    } LIMIT 500
+    """ % str(person["id"])
     try:
         r2 = http_req.get(
             "https://query.wikidata.org/sparql",
@@ -775,29 +855,79 @@ def _person_filmography_wikidata(name):
         r2.raise_for_status()
         rows = r2.json().get("results", {}).get("bindings", [])
     except Exception:
-        current_app.logger.exception("Wikidata query failed")
+        current_app.logger.exception("Wikidata filmography query failed")
         rows = []
 
-    films, seen = [], set()
-    for row in sorted(rows,
-                      key=lambda rw: rw.get("date", {}).get("value", ""),
-                      reverse=True):
-        imdb = row.get("imdb", {}).get("value", "")
-        title = row.get("filmLabel", {}).get("value", "")
-        year = row.get("date", {}).get("value", "")[:4]
-        if not imdb.startswith("tt") or not title or imdb in seen:
+    role_by_qid = {}
+    for row in rows:
+        uri = row.get("film", {}).get("value", "")
+        role = row.get("role", {}).get("value", "")
+        qid = uri.rsplit("/", 1)[-1]
+        if qid.startswith("Q"):
+            lst = role_by_qid.setdefault(qid, [])
+            if role and role not in lst:
+                lst.append(role)
+    if not role_by_qid:
+        return {
+            "name": person.get("l") or name,
+            "department": None,
+            "profile": person.get("image") if isinstance(person.get("image"), str) else None,
+        }, []
+
+    fents = _wd_entities(http_req, ua, list(role_by_qid)[:200])
+
+    # Types non-cinema exclus (series TV, episodes...) pour eviter les faux films.
+    bad_types = {"Q5398426", "Q21198342", "Q169930", "Q15744341"}
+
+    def _claim_values(ent, prop):
+        out = []
+        for st in ent.get("claims", {}).get(prop, []):
+            snak = st.get("mainsnak") or {}
+            dv = snak.get("datavalue") or {}
+            out.append(dv.get("value"))
+        return out
+
+    grouped = []
+    for qid, roles in role_by_qid.items():
+        ent = fents.get(qid)
+        if not ent:
             continue
-        seen.add(imdb)
-        films.append({
-            "imdb_id": imdb,
-            "title": title,
-            "year": year,
-            "poster": None,
-            "rating": None,
-        })
-        if len(films) >= 30:
-            break
+        p31 = {v.get("id") for v in _claim_values(ent, "P31")
+               if isinstance(v, dict)}
+        if p31 & bad_types:
+            continue
+        imdb = next((str(v) for v in _claim_values(ent, "P345")
+                     if str(v).startswith("tt")), None)
+        if not imdb:
+            continue
+        label = ""
+        for lang in ("fr", "en"):
+            label = ent.get("labels", {}).get(lang, {}).get("value") or ""
+            if label:
+                break
+        if not label:
+            continue
+        years = [v.get("time", "")[1:5] for v in _claim_values(ent, "P577")
+                 if isinstance(v, dict) and len(v.get("time", "")) >= 5]
+        year = min(years) if years else ""
+        grouped.append({"imdb_id": imdb, "title": label, "year": year,
+                        "poster": None, "rating": None, "roles": roles})
+
+    grouped.sort(key=lambda f: f["year"], reverse=True)
+    films = grouped[:50]
+    role_labels = {"director": "Réalisateur", "writer": "Scénariste", "actor": "Acteur"}
+    for f in films:
+        f["roles"] = [role_labels[r] for r in f["roles"]]
+
     profile = person.get("image")
+    if not profile:
+        import urllib.parse as _up
+        pent = (_wd_entities(http_req, ua, [pqid]).get(pqid) or {})
+        for v in _claim_values(pent, "P18"):
+            if isinstance(v, str) and v:
+                profile = ("https://commons.wikimedia.org/wiki/Special:FilePath/"
+                           + _up.quote(v) + "?width=400")
+                break
     return {
         "name": person.get("l") or name,
         "department": None,
@@ -811,9 +941,10 @@ def api_tmdb_person(name):
     name = _sanitize_str(name, 120)
     if not name:
         return jsonify({"error": "name required"}), 400
+    strict = request.args.get("strict") == "1"
     api_key = current_app.config.get("TMDB_API_KEY", "")
     if not api_key:
-        person, films = _person_filmography_wikidata(name)
+        person, films = _person_filmography_wikidata(name, strict=strict)
         return jsonify({"person": person, "films": films})
     import requests as http_req
     try:
@@ -825,8 +956,15 @@ def api_tmdb_person(name):
         )
         r.raise_for_status()
         persons = r.json().get("results", [])
-        if not persons:
-            return jsonify({"person": None, "films": []})
+        wanted = _norm_name(name)
+        exact = next((p for p in persons
+                      if _norm_name(p.get("name", "")) == wanted), None)
+        if strict:
+            persons = [exact] if exact else []
+            if not persons:
+                return jsonify({"person": None, "films": []})
+        elif exact:
+            persons = [exact] + [p for p in persons if p is not exact]
         person = persons[0]
         try:
             pid = int(person.get("id") or 0)
@@ -1031,16 +1169,26 @@ def api_get_box(box_id):
         "films": films,
         "is_owner": is_owner,
         "is_member": is_member,
+        "can_edit_films": bool(is_owner or (is_member and box.member_can_edit)),
         "is_shared": bool(box.share_code) if is_owner else None,
         "share_code": box.share_code if is_owner else None,
     })
+
+
+def _can_modify_box(box, user):
+    if box.user_id == user.id:
+        return True
+    if not box.member_can_edit:
+        return False
+    return db.session.query(BoxMember.id).filter_by(
+        box_id=box.id, user_id=user.id).first() is not None
 
 
 @api_bp.route("/api/boxs/<int:box_id>/films", methods=["POST"])
 @token_required
 def api_box_add_film(box_id):
     box = db.session.get(Box, box_id)
-    if not box or box.user_id != request.current_user.id:
+    if not box or not _can_modify_box(box, request.current_user):
         return jsonify({"error": "Accès refusé."}), 403
     data = request.get_json(silent=True) or {}
     try:
@@ -1080,7 +1228,7 @@ def api_box_add_film(box_id):
 @token_required
 def api_box_remove_film(box_id, film_id):
     box = db.session.get(Box, box_id)
-    if not box or box.user_id != request.current_user.id:
+    if not box or not _can_modify_box(box, request.current_user):
         return jsonify({"error": "Accès refusé."}), 403
     BoxFilm.query.filter_by(box_id=box_id, film_id=film_id).delete()
     db.session.commit()
@@ -1091,7 +1239,7 @@ def api_box_remove_film(box_id, film_id):
 @token_required
 def api_box_remove_imdb(box_id, imdb_id):
     box = db.session.get(Box, box_id)
-    if not box or box.user_id != request.current_user.id:
+    if not box or not _can_modify_box(box, request.current_user):
         return jsonify({"error": "Accès refusé."}), 403
     BoxFilm.query.filter_by(box_id=box_id, imdb_id=imdb_id).delete()
     db.session.commit()
@@ -1111,6 +1259,8 @@ def api_edit_box(box_id):
         box.description = _sanitize_str(data["description"], 1000)
     if "is_public" in data:
         box.is_public = bool(data["is_public"])
+    if "member_can_edit" in data:
+        box.member_can_edit = bool(data["member_can_edit"])
     db.session.commit()
     return jsonify({"box": _box_to_api(box)})
 
@@ -1145,6 +1295,7 @@ def _box_to_api(box):
         "nom": box.nom,
         "description": box.description or "",
         "is_public": box.is_public,
+        "member_can_edit": bool(box.member_can_edit),
         "user_id": box.user_id,
         "user_prenom": box.owner.prenom if box.owner else "",
         "film_count": len(box.films),
@@ -1284,26 +1435,76 @@ def api_add_top():
     if not film_id and not imdb_id:
         return jsonify({"error": "film_id ou imdb_id requis."}), 400
 
-    existing = TopFilm.query.filter_by(user_id=request.current_user.id, position=position).first()
-    if existing:
-        db.session.delete(existing)
+    tops = (TopFilm.query.filter_by(user_id=request.current_user.id)
+            .order_by(TopFilm.position.asc()).all())
+
+    # Retire l'entree existante de ce film (deplacement) sans renumeroter encore
+    same_film = None
+    for t in tops:
+        if (film_id and t.film_id == film_id) or (not film_id and t.imdb_id == imdb_id):
+            same_film = t
+            break
+    if same_film:
+        db.session.delete(same_film)
+        tops.remove(same_film)
+
+    # Decale vers le bas les films occupant la position visee ou au-dela
+    for t in tops:
+        if t.position >= position:
+            t.position += 1
+
     if film_id:
-        existing_film = TopFilm.query.filter_by(user_id=request.current_user.id, film_id=film_id).first()
-        if existing_film:
-            db.session.delete(existing_film)
         top = TopFilm(film_id=film_id, position=position, user_id=request.current_user.id)
     else:
-        existing_film = TopFilm.query.filter_by(user_id=request.current_user.id, imdb_id=imdb_id).first()
-        if existing_film:
-            db.session.delete(existing_film)
         top = TopFilm(
             imdb_id=imdb_id, position=position, user_id=request.current_user.id,
             nom=_sanitize_str(data.get("nom", ""), 200),
             image=_sanitize_str(data.get("image", ""), 500),
         )
     db.session.add(top)
+    db.session.flush()
+
+    # Renumerotrie proprement : supprime ce qui depasse le Top 20
+    all_tops = (TopFilm.query.filter_by(user_id=request.current_user.id)
+                .order_by(TopFilm.position.asc()).all())
+    for idx, t in enumerate(all_tops, start=1):
+        if idx > MAX_TOP_ITEMS:
+            db.session.delete(t)
+        else:
+            t.position = idx
     db.session.commit()
     return jsonify({"status": "ok", "message": "Ajouté au top."}), 201
+
+
+MAX_TOP_ITEMS = 20
+
+
+def _top_key(t):
+    return f"ext:{t.imdb_id}" if not t.film_id and t.imdb_id else f"film:{t.film_id}"
+
+
+@api_bp.route("/api/top/reorder", methods=["POST"])
+@token_required
+def api_reorder_top():
+    data = request.get_json(silent=True) or {}
+    order = data.get("order")
+    if not isinstance(order, list) or not order:
+        return jsonify({"error": "ordre requis."}), 400
+    if len(order) > MAX_TOP_ITEMS:
+        return jsonify({"error": "Trop d'entrees."}), 400
+
+    tops = (TopFilm.query.filter_by(user_id=request.current_user.id)
+            .order_by(TopFilm.position.asc()).all())
+    by_key = {_top_key(t): t for t in tops}
+    if len(order) != len(by_key) or len(set(order)) != len(order):
+        return jsonify({"error": "Liste incoherente."}), 400
+    for key in order:
+        if key not in by_key:
+            return jsonify({"error": "Entree inconnue."}), 400
+    for pos, key in enumerate(order, start=1):
+        by_key[key].position = pos
+    db.session.commit()
+    return jsonify({"status": "ok"})
 
 
 @api_bp.route("/api/top/<int:film_id>", methods=["DELETE"])
@@ -1312,6 +1513,7 @@ def api_remove_top(film_id):
     entry = TopFilm.query.filter_by(film_id=film_id, user_id=request.current_user.id).first()
     if entry:
         db.session.delete(entry)
+        _renumber_top(request.current_user.id)
         db.session.commit()
     return jsonify({"status": "ok", "message": "Retiré du top."})
 
@@ -1322,8 +1524,16 @@ def api_remove_top_imdb(imdb_id):
     entry = TopFilm.query.filter_by(imdb_id=imdb_id, user_id=request.current_user.id).first()
     if entry:
         db.session.delete(entry)
+        _renumber_top(request.current_user.id)
         db.session.commit()
     return jsonify({"status": "ok", "message": "Retiré du top."})
+
+
+def _renumber_top(user_id):
+    tops = (TopFilm.query.filter_by(user_id=user_id)
+            .order_by(TopFilm.position.asc()).all())
+    for idx, t in enumerate(tops, start=1):
+        t.position = idx
 
 
 # ─── Hidden films (admin) ────────────────────────────────────────────

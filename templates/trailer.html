@@ -6,13 +6,66 @@
 <title>TRIXIFILMS</title>
 <style>
   html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
-  iframe { width: 100%; height: 100%; border: 0; display: block; }
+  #player { width: 100%; height: 100%; }
 </style>
 </head>
 <body>
-<iframe src="https://www.youtube.com/embed/{{ video_id }}?autoplay={{ autoplay }}&rel=0&playsinline=1&modestbranding=1"
-  title="Bande-annonce" frameborder="0"
-  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-  referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<div id="player"></div>
+<script>
+var player = null;
+var pendingAutoplay = {{ autoplay }};
+var tag = document.createElement('script');
+tag.src = 'https://www.youtube.com/iframe_api';
+document.body.appendChild(tag);
+
+window.onYouTubeIframeAPIReady = function () {
+  player = new YT.Player('player', {
+    videoId: '{{ video_id }}',
+    host: 'https://www.youtube-nocookie.com',
+    playerVars: {
+      autoplay: {{ autoplay }},
+      rel: 0,
+      playsinline: 1,
+      modestbranding: 1,
+      hl: '{{ hl }}',
+      cc_lang_pref: '{{ hl }}',
+      cc_load_policy: 0
+    },
+    events: {
+      onReady: function () {
+        if (pendingAutoplay) { player.playVideo(); }
+        window.flutter_inappwebview &&
+          window.flutter_inappwebview.callHandler('trxPlayerReady');
+      }
+    }
+  });
+};
+
+function trxCcSet(mode, lang) {
+  if (!player || !player.loadModule) return;
+  try {
+    if (mode === 'off') {
+      player.unloadModule('captions');
+      return;
+    }
+    player.loadModule('captions');
+    if (lang) {
+      player.setOption('captions', 'track', { languageCode: lang });
+    } else {
+      player.setOption('captions', 'track', {});
+    }
+  } catch (e) {}
+}
+
+function trxGetCcTracks() {
+  if (!player || !player.getOption) return '[]';
+  try {
+    var list = player.getOption('captions', 'tracklist') || [];
+    return JSON.stringify(list.map(function (t) {
+      return { code: (t.languageCode || ''), name: (t.displayName || t.languageCode || '') };
+    }));
+  } catch (e) { return '[]'; }
+}
+</script>
 </body>
 </html>

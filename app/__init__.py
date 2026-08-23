@@ -161,6 +161,7 @@ def create_app():
         ensure_column("box_films", "nom", "ALTER TABLE box_films ADD COLUMN nom VARCHAR(200) DEFAULT ''")
         ensure_column("box_films", "image", "ALTER TABLE box_films ADD COLUMN image VARCHAR(500) DEFAULT ''")
         ensure_column("boxs", "share_code", "ALTER TABLE boxs ADD COLUMN share_code VARCHAR(12)")
+        ensure_column("boxs", "member_can_edit", "ALTER TABLE boxs ADD COLUMN member_can_edit BOOLEAN DEFAULT FALSE")
         if db.engine.dialect.name == "postgresql" and "boxs" in inspector.get_table_names():
             cols = [c["name"] for c in inspector.get_columns("boxs")]
             if "share_code" in cols:
