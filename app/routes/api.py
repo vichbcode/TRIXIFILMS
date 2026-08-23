@@ -1147,6 +1147,7 @@ def api_get_box(box_id):
     is_member = bool(viewer_id is not None and not is_owner and viewer_id in member_ids)
     if not box.is_public and not is_owner and not is_member:
         return jsonify({"error": "Box privée."}), 403
+    _backfill_images([bf for bf in box.films if bf.film is None])
     films = []
     for bf in box.films:
         if bf.film:
@@ -1214,10 +1215,13 @@ def api_box_add_film(box_id):
         if existing:
             return jsonify({"error": "Déjà dans la box."}), 409
         max_pos = db.session.query(db.func.max(BoxFilm.position)).filter_by(box_id=box_id).scalar() or 0
+        image = _sanitize_str(data.get("image", ""), 500)
+        if not image:
+            image = _cinemeta_poster(imdb_id) or ""
         bf = BoxFilm(
             box_id=box_id, imdb_id=imdb_id,
             nom=_sanitize_str(data.get("nom", ""), 200),
-            image=_sanitize_str(data.get("image", ""), 500),
+            image=image,
             position=max_pos + 1,
         )
         db.session.add(bf)
@@ -1392,10 +1396,47 @@ def api_join_box():
 
 # ─── Top ────────────────────────────────────────────────────────────
 
+def _cinemeta_poster(imdb_id):
+    """Affiche Cinemeta pour un film imdb (fallback quand l'image manque)."""
+    import requests as http_req
+    if not imdb_id.startswith("tt"):
+        return None
+    try:
+        r = http_req.get(
+            "https://v3-cinemeta.strem.io/meta/movie/%s.json" % imdb_id,
+            timeout=8)
+        r.raise_for_status()
+        meta = (r.json() or {}).get("meta") or {}
+        poster = meta.get("poster")
+        return poster if isinstance(poster, str) and poster else None
+    except Exception:
+        return None
+
+
+def _backfill_images(items):
+    """Complete les affiches vides (max 3 par appel) et persiste."""
+    fixed = 0
+    for it in items:
+        if fixed >= 3:
+            break
+        if not it.imdb_id or it.image:
+            continue
+        poster = _cinemeta_poster(it.imdb_id)
+        if poster:
+            it.image = poster
+            fixed += 1
+    if fixed:
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+
 @api_bp.route("/api/top", methods=["GET"])
 @token_required
 def api_get_top():
     tops = TopFilm.query.filter_by(user_id=request.current_user.id).order_by(TopFilm.position.asc()).all()
+    _backfill_images([t for t in tops if not t.film])
     results = []
     for t in tops:
         if t.film:
@@ -1458,10 +1499,13 @@ def api_add_top():
     if film_id:
         top = TopFilm(film_id=film_id, position=position, user_id=request.current_user.id)
     else:
+        image = _sanitize_str(data.get("image", ""), 500)
+        if not image:
+            image = _cinemeta_poster(imdb_id) or ""
         top = TopFilm(
             imdb_id=imdb_id, position=position, user_id=request.current_user.id,
             nom=_sanitize_str(data.get("nom", ""), 200),
-            image=_sanitize_str(data.get("image", ""), 500),
+            image=image,
         )
     db.session.add(top)
     db.session.flush()
