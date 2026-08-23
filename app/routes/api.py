@@ -938,7 +938,9 @@ def _person_filmography_wikidata(name, strict=False):
 @api_bp.route("/api/tmdb/person/<path:name>", methods=["GET"])
 @rate_limit("api_tmdb_person", 30, 60, 600)
 def api_tmdb_person(name):
-    name = _sanitize_str(name, 120)
+    # Certains proxys (Vercel) laissent le segment encode : decode ici.
+    from urllib.parse import unquote
+    name = _sanitize_str(unquote(name), 120)
     if not name:
         return jsonify({"error": "name required"}), 400
     strict = request.args.get("strict") == "1"
