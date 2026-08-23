@@ -172,7 +172,16 @@ def trailer_embed(video_id: str):
     autoplay = 1 if request.args.get("autoplay") == "1" else 0
     hl = re.match(r"^[a-z]{2}(-[A-Z]{2})?$", request.args.get("hl", "")) and \
         request.args.get("hl") or "fr"
-    return render_template("trailer.html", video_id=video_id, autoplay=autoplay, hl=hl)
+    cclang = re.match(r"^[a-z]{2}(-[A-Z]{2})?$",
+                      request.args.get("cclang", "")) and \
+        request.args.get("cclang") or "fr"
+    cc = 1 if request.args.get("cc") == "1" else 0
+    try:
+        start = max(0, min(int(request.args.get("start", "0")), 21600))
+    except (TypeError, ValueError):
+        start = 0
+    return render_template("trailer.html", video_id=video_id, autoplay=autoplay,
+                           hl=hl, cc=cc, cclang=cclang, start=start)
 
 
 @main_bp.route("/")
