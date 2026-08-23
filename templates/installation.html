@@ -72,12 +72,13 @@
       box partagees et equipe avec photos. Tout fonctionne, tout est gratuit.
     </p>
     <div class="inst-chips">
-      <span class="inst-chip accent">Version 1.0.0</span>
+      {% if apk_version %}<span class="inst-chip accent">Version {{ apk_version }}</span>{% else %}<span class="inst-chip accent">Derniere version</span>{% endif %}
       <span class="inst-chip">Android 7.0+</span>
       <span class="inst-chip">Gratuit</span>
-      {% if apk_available %}<span class="inst-chip">{{ apk_size }} Mo</span>{% endif %}
+      {% if apk_size %}<span class="inst-chip">{{ apk_size }} Mo</span>{% endif %}
+      <span class="inst-chip">Mises a jour automatiques</span>
     </div>
-    {% if apk_available %}
+    {% if apk_version %}
     <a href="{{ url_for('installation.download') }}" class="inst-cta">Telecharger l'APK</a>
     <br><a class="inst-cta-sm" href="#comment-marche">Decouvrir comment ca marche</a>
     {% else %}
@@ -98,7 +99,8 @@
         <div class="inst-step-title">Telecharger le fichier APK</div>
         <div class="inst-step-desc">
           Appuie sur le bouton <strong>"Telecharger l'APK"</strong> en haut de cette page.
-          Le fichier fait environ <strong>52 Mo</strong> -- utilise le WiFi si possible.
+          Tu recevras toujours la <strong>derniere version</strong> du fichier
+          <strong>TRIXIFILMS.apk</strong> -- utilise le WiFi si possible.
         </div>
       </div>
       <div class="inst-step">
@@ -114,9 +116,10 @@
         <div class="inst-step-num">Etape 03</div>
         <div class="inst-step-title">Installer le fichier</div>
         <div class="inst-step-desc">
-          Ouvre le fichier <strong>TRIXIFILMS-1.0.0.apk</strong> depuis l'application Fichiers.
+          Ouvre le fichier <strong>TRIXIFILMS.apk</strong> depuis l'application Fichiers.
           Appuie sur <strong>"Installer"</strong> et patiente quelques secondes.
           L'icone TRIXIFILMS apparaitra sur ton ecran d'accueil.
+          Ensuite, les futures versions s'installent <strong>automatiquement depuis l'application</strong>.
         </div>
       </div>
       <div class="inst-step">
@@ -310,6 +313,12 @@
         </div>
       </details>
       <details>
+        <summary>Comment se passent les mises a jour ?</summary>
+        <div class="inst-faq-body">
+          C'est automatique. A chaque lancement, l'application verifie si une nouvelle version existe et te propose de l'installer en un tap -- plus besoin de retélécharger l'APK a la main. Tu peux aussi verifier manuellement depuis <strong>Parametres &gt; Rechercher les mises a jour</strong>.
+        </div>
+      </details>
+      <details>
         <summary>Est-ce que l'application fonctionne hors-ligne ?</summary>
         <div class="inst-faq-body">
           Non. TRIXIFILMS necessite une connexion Internet pour charger les films, les bandes-annonces et synchroniser tes notes et messages avec le serveur.
@@ -355,11 +364,11 @@
       Le cinema est un art partage. Cree un compte, explore le catalogue, note tes films preferes
       et partage tes decouvertes avec tes amis.
     </p>
-    {% if apk_available %}
+    {% if apk_version %}
     <a href="{{ url_for('installation.download') }}" class="inst-cta">Telecharger l'APK</a>
     {% endif %}
     <p style="margin-top:24px;font-size:12px;color:var(--muted);letter-spacing:2px;text-transform:uppercase">
-      TRIXIFILMS v1.0.0
+      TRIXIFILMS{% if apk_version %} v{{ apk_version }}{% endif %}
     </p>
   </div>
 
