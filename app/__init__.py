@@ -99,6 +99,24 @@ def create_app():
         if is_prod and request.headers.get("X-Forwarded-Proto", "http") != "https" and request.scheme != "https":
             return redirect(request.url.replace("http://", "https://", 1), code=301)
 
+    # ─── Site web en construction ─────────────────────────────────────
+    # Toutes les pages du site affichent "en construction".
+    # Restent ouverts (indispensables a l'app mobile) :
+    #   /api/...            API mobile
+    #   /trailer/...        lecteur integre de l'app
+    #   /installation...    page de telechargement APK (+ admin/suggestions)
+    #   /static/...         fichiers statiques
+    _OPEN_PREFIXES = ("/api/", "/trailer/", "/installation", "/static/")
+
+    @app.before_request
+    def site_under_construction():
+        path = request.path or "/"
+        if any(path.startswith(p) for p in _OPEN_PREFIXES):
+            return None
+        if request.method == "OPTIONS":
+            return None
+        return render_template("construction.html"), 503
+
     @app.errorhandler(404)
     def not_found(e):
         return render_template("404.html", title="Page non trouvée"), 404

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TRIXIFILMS — Site en construction</title>
+<style>
+  :root {
+    --bg: #0A0A0F;
+    --panel: #14141C;
+    --accent: #D9413E;
+    --text: #F2F2F5;
+    --muted: #9A9AA8;
+    --border: #26262f;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(217, 65, 62, 0.14), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(217, 65, 62, 0.08), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    text-align: center;
+    padding: 32px 20px;
+    overflow-x: hidden;
+  }
+
+  .reel {
+    width: 92px; height: 92px;
+    border-radius: 50%;
+    border: 6px solid var(--panel);
+    position: relative;
+    margin-bottom: 34px;
+    background:
+      radial-gradient(circle at center, var(--bg) 30%, transparent 31%),
+      repeating-conic-gradient(from 0deg, var(--panel) 0deg 40deg, #1d1d28 40deg 80deg);
+    animation: spin 7s linear infinite;
+    box-shadow: 0 0 44px rgba(217, 65, 62, 0.22);
+  }
+  .reel::after {
+    content: '';
+    position: absolute; inset: 24px;
+    border-radius: 50%;
+    border: 4px solid var(--accent);
+    box-shadow: inset 0 0 18px rgba(217, 65, 62, 0.55);
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .brand {
+    font-size: 15px;
+    letter-spacing: 7px;
+    font-weight: 800;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .brand span { color: var(--accent); }
+
+  h1 {
+    font-size: clamp(30px, 6vw, 52px);
+    font-weight: 900;
+    letter-spacing: 1px;
+    line-height: 1.12;
+    max-width: 720px;
+  }
+  h1 em {
+    font-style: normal;
+    color: var(--accent);
+    position: relative;
+  }
+
+  p.sub {
+    margin-top: 18px;
+    max-width: 560px;
+    color: var(--muted);
+    font-size: clamp(14px, 2.4vw, 16.5px);
+    line-height: 1.65;
+  }
+
+  .bar {
+    margin-top: 38px;
+    width: min(430px, 84vw);
+    height: 8px;
+    border-radius: 99px;
+    background: var(--panel);
+    overflow: hidden;
+    position: relative;
+  }
+  .bar::before {
+    content: '';
+    position: absolute; top: 0; left: -45%;
+    height: 100%; width: 45%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    animation: slide 1.9s ease-in-out infinite;
+  }
+  @keyframes slide { to { left: 100%; } }
+
+  .steps {
+    margin-top: 16px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 12.5px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .steps b { color: var(--text); font-weight: 700; }
+
+  .cta {
+    margin-top: 42px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--accent);
+    color: #fff;
+    text-decoration: none;
+    font-weight: 800;
+    font-size: 15px;
+    letter-spacing: 0.6px;
+    padding: 15px 34px;
+    border-radius: 999px;
+    transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+    box-shadow: 0 10px 30px rgba(217, 65, 62, 0.35);
+  }
+  .cta:hover {
+    background: #c03532;
+    transform: translateY(-2px);
+    box-shadow: 0 14px 36px rgba(217, 65, 62, 0.45);
+  }
+  .cta svg { width: 17px; height: 17px; fill: currentColor; }
+
+  .note {
+    margin-top: 16px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .note b { color: var(--text); }
+
+  footer {
+    position: fixed;
+    bottom: 18px; left: 0; right: 0;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #55555f;
+  }
+</style>
+</head>
+<body>
+  <div class="reel"></div>
+
+  <div class="brand">TRIXI<span>FILMS</span></div>
+  <h1>Le site passe à la<br><em>bobine suivante</em></h1>
+  <p class="sub">
+    Le site web est en pleine construction : catalogue, box partagées, tops,
+    comptes et fiches films arrivent bientôt ici.
+  </p>
+
+  <div class="bar"></div>
+  <div class="steps"><b>En cours</b><span>•</span><span>Bientot disponible</span></div>
+
+  <a class="cta" href="/installation">
+    <svg viewBox="0 0 24 24"><path d="M12 3v10.6l3.3-3.3 1.4 1.4-5.7 5.7-5.7-5.7 1.4-1.4 3.3 3.3V3h2zM5 19h14v2H5v-2z"/></svg>
+    Telecharger l'application
+  </a>
+  <p class="note">L'application mobile, elle, fonctionne a 100% — mises a jour automatiques incluses.</p>
+
+  <footer>TRIXIFILMS © 2026 — Le cinema dans ta poche</footer>
+</body>
+</html>
