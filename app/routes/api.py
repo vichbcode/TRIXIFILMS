@@ -909,6 +909,7 @@ def _person_filmography_wikidata(name, strict=False):
       { ?film wdt:P57 ?p . BIND("director" AS ?role) }
       UNION { ?film wdt:P58 ?p . BIND("writer" AS ?role) }
       UNION { ?film wdt:P161 ?p . BIND("actor" AS ?role) }
+      UNION { ?film wdt:P162 ?p . BIND("producer" AS ?role) }
     } LIMIT 500
     """ % str(person["id"])
     role_by_qid = _collect(_wd_sparql(http_req, ua, sparql, timeout=30))
@@ -922,8 +923,9 @@ def _person_filmography_wikidata(name, strict=False):
               { ?film wdt:P57 wd:%s . BIND("director" AS ?role) }
               UNION { ?film wdt:P58 wd:%s . BIND("writer" AS ?role) }
               UNION { ?film wdt:P161 wd:%s . BIND("actor" AS ?role) }
+              UNION { ?film wdt:P162 wd:%s . BIND("producer" AS ?role) }
             } LIMIT 500
-            """ % (pqid, pqid, pqid)
+            """ % (pqid, pqid, pqid, pqid)
             role_by_qid = _collect(_wd_sparql(http_req, ua, sparql2, timeout=30))
 
     if not role_by_qid:
@@ -966,28 +968,32 @@ def _person_filmography_wikidata(name, strict=False):
         if tv:
             e["types"].add(tv.rsplit("/", 1)[-1])
 
-    # Types non-cinema exclus : series, saisons et episodes TV, jeux video...
-    bad_types = {"Q5398426", "Q21198342", "Q3464665", "Q21191270",
-                 "Q1259759", "Q15416", "Q169930", "Q15744341", "Q7889"}
+    # Episodes, saisons et jeux video sont exclus ; les series sont incluses
+    # et marquees par un champ "type" (le client ouvre le bon ecran).
+    skip_types = {"Q21198342", "Q3464665", "Q21191270", "Q15744341", "Q7889"}
+    series_types = {"Q5398426", "Q1259759", "Q15416", "Q169930", "Q581714"}
 
     grouped = []
     for qid, roles in role_by_qid.items():
         e = meta.get(qid)
         if not e:
             continue
-        if e["types"] & bad_types:
+        if e["types"] & skip_types:
             continue
         if not e["imdb"] or not e["label"]:
             continue
         if _re.fullmatch(r"Q\d+", e["label"]):  # label service sans libelle
             continue
         year = min(e["years"]) if e["years"] else ""
+        kind = "series" if (e["types"] & series_types) else "movie"
         grouped.append({"imdb_id": e["imdb"], "title": e["label"], "year": year,
-                        "poster": None, "rating": None, "roles": roles})
+                        "poster": None, "rating": None, "type": kind,
+                        "roles": roles})
 
     grouped.sort(key=lambda f: f["year"], reverse=True)
     films = grouped[:200]
-    role_labels = {"director": "Réalisateur", "writer": "Scénariste", "actor": "Acteur"}
+    role_labels = {"director": "Réalisateur", "writer": "Scénariste",
+                   "actor": "Acteur", "producer": "Producteur"}
     for f in films:
         f["roles"] = [role_labels[r] for r in f["roles"]]
 
@@ -1035,12 +1041,13 @@ def api_wd_credits(imdb_id):
       { ?film wdt:P57 ?p . BIND("director" AS ?prop) }
       UNION { ?film wdt:P58 ?p . BIND("writer" AS ?prop) }
       UNION { ?film wdt:P161 ?p . BIND("cast" AS ?prop) }
+      UNION { ?film wdt:P162 ?p . BIND("producer" AS ?prop) }
       SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". }
     } LIMIT 150
     """ % imdb_id
     rows = _wd_sparql(http_req, ua, sparql, timeout=25)
 
-    out = {"director": [], "writer": [], "cast": []}
+    out = {"director": [], "writer": [], "cast": [], "producer": []}
     for row in rows:
         prop = row.get("prop", {}).get("value", "")
         label = row.get("pLabel", {}).get("value", "").strip()
@@ -1050,8 +1057,11 @@ def api_wd_credits(imdb_id):
             continue
         if label not in out[prop]:
             out[prop].append(label)
+    out["director"] = out["director"][:12]
+    out["writer"] = out["writer"][:15]
     out["cast"] = out["cast"][:40]
-    if out["director"] or out["writer"] or out["cast"]:
+    out["producer"] = out["producer"][:20]
+    if out["director"] or out["writer"] or out["cast"] or out["producer"]:
         _cache_set(ckey, out)
     return jsonify(out)
 
@@ -1524,20 +1534,24 @@ def api_join_box():
 # ─── Top ────────────────────────────────────────────────────────────
 
 def _cinemeta_poster(imdb_id):
-    """Affiche Cinemeta pour un film imdb (fallback quand l'image manque)."""
+    """Affiche Cinemeta pour un film ou une serie (fallback si image manquante)."""
     import requests as http_req
     if not imdb_id.startswith("tt"):
         return None
-    try:
-        r = http_req.get(
-            "https://v3-cinemeta.strem.io/meta/movie/%s.json" % imdb_id,
-            timeout=8)
-        r.raise_for_status()
-        meta = (r.json() or {}).get("meta") or {}
-        poster = meta.get("poster")
-        return poster if isinstance(poster, str) and poster else None
-    except Exception:
-        return None
+    base = imdb_id.split(":")[0]  # les episodes (tt...:S:E) pointent la serie
+    for kind in ("movie", "series"):
+        try:
+            r = http_req.get(
+                "https://v3-cinemeta.strem.io/meta/%s/%s.json" % (kind, base),
+                timeout=8)
+            r.raise_for_status()
+            meta = (r.json() or {}).get("meta") or {}
+            poster = meta.get("poster")
+            if isinstance(poster, str) and poster:
+                return poster
+        except Exception:
+            continue
+    return None
 
 
 def _backfill_images(items):
