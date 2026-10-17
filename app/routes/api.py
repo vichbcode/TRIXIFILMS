@@ -1094,6 +1094,18 @@ def api_wd_series_episodes(imdb_id):
     if not qid:
         return jsonify({"episodes": {}})
 
+    # 1) Wikipedia : couverture par episode la plus complete (modeles
+    #    {{Episode list}} des articles de serie / listes d'episodes).
+    wiki_eps = {}
+    try:
+        from wiki_episodes import fetch_series_episodes, enwiki_title_from_qid
+        title = enwiki_title_from_qid(qid, ua)
+        if title:
+            wiki_eps = fetch_series_episodes(title, ua)
+    except Exception:
+        current_app.logger.exception("Wikipedia episodes lookup failed")
+
+    # 2) Wikidata : repli pour les episodes/credits non couverts.
     sparql = """
     SELECT ?seasonNum ?epNum ?dirLabel ?writerLabel WHERE {
       ?season wdt:P179 wd:%s ; p:P179 ?ss .
@@ -1105,23 +1117,38 @@ def api_wd_series_episodes(imdb_id):
       SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". }
     }
     """ % qid
-    episodes = {}
+    wd_eps = {}
     for row in _wd_sparql(http_req, ua, sparql, timeout=30):
         season = row.get("seasonNum", {}).get("value", "")
         number = row.get("epNum", {}).get("value", "")
         if not season or not number:
             continue
-        entry = episodes.setdefault(
+        entry = wd_eps.setdefault(
             "%s:%s" % (season, number), {"director": [], "writer": []})
         for field, var in (("director", "dirLabel"), ("writer", "writerLabel")):
             label = row.get(var, {}).get("value", "").strip()
             if label and not re.fullmatch(r"Q\d+", label) and label not in entry[field]:
                 entry[field].append(label)
-    for entry in episodes.values():
+    for entry in wd_eps.values():
         entry["director"] = entry["director"][:6]
         entry["writer"] = entry["writer"][:8]
-    out = {"episodes": episodes}
-    if episodes:
+
+    # 3) Fusion : Wikipedia prioritaire, Wikidata comble les trous.
+    merged = {}
+    for key, entry in wiki_eps.items():
+        merged[key] = {"director": entry.get("director", [])[:6],
+                       "writer": entry.get("writer", [])[:8]}
+    for key, entry in wd_eps.items():
+        cur = merged.get(key)
+        if cur is None:
+            merged[key] = entry
+        else:
+            for field in ("director", "writer"):
+                if not cur[field]:
+                    cur[field] = entry[field]
+
+    out = {"episodes": merged}
+    if merged:
         _cache_set(ckey, out)
     return jsonify(out)
 
