@@ -1432,6 +1432,10 @@ def _backfill_images(items):
             db.session.rollback()
 
 
+DEFAULT_TOP_LINES = 20
+MAX_TOP_ITEMS = 500
+
+
 @api_bp.route("/api/top", methods=["GET"])
 @token_required
 def api_get_top():
@@ -1454,7 +1458,10 @@ def api_get_top():
                 "top_position": t.position,
                 "is_external": True,
             })
-    return jsonify({"top": results})
+    return jsonify({
+        "top": results,
+        "top_lines": request.current_user.top_lines or DEFAULT_TOP_LINES,
+    })
 
 
 @api_bp.route("/api/top", methods=["POST"])
@@ -1470,9 +1477,9 @@ def api_add_top():
     except (TypeError, ValueError):
         position = None
     if not position:
-        return jsonify({"error": "Position requise (1-20)."}), 400
-    if position < 1 or position > 20:
-        return jsonify({"error": "Position invalide (1-20)."}), 400
+        return jsonify({"error": f"Position requise (1-{MAX_TOP_ITEMS})."}), 400
+    if position < 1 or position > MAX_TOP_ITEMS:
+        return jsonify({"error": f"Position invalide (1-{MAX_TOP_ITEMS})."}), 400
     imdb_id = _sanitize_str(data.get("imdb_id", ""), 20)
 
     if not film_id and not imdb_id:
@@ -1510,38 +1517,82 @@ def api_add_top():
     db.session.add(top)
     db.session.flush()
 
-    # Renumerotrie proprement : supprime ce qui depasse le Top 20
-    all_tops = (TopFilm.query.filter_by(user_id=request.current_user.id)
-                .order_by(TopFilm.position.asc()).all())
-    for idx, t in enumerate(all_tops, start=1):
-        if idx > MAX_TOP_ITEMS:
-            db.session.delete(t)
-        else:
-            t.position = idx
+    # On conserve les positions telles quelles (les lignes vides sont autorisees).
+    # On supprime uniquement ce qui depasse le plafond absolu.
+    overflow = (TopFilm.query.filter_by(user_id=request.current_user.id)
+                .filter(TopFilm.position > MAX_TOP_ITEMS).all())
+    for t in overflow:
+        db.session.delete(t)
     db.session.commit()
     return jsonify({"status": "ok", "message": "Ajouté au top."}), 201
-
-
-MAX_TOP_ITEMS = 20
 
 
 def _top_key(t):
     return f"ext:{t.imdb_id}" if not t.film_id and t.imdb_id else f"film:{t.film_id}"
 
 
+@api_bp.route("/api/top/lines", methods=["POST"])
+@token_required
+def api_set_top_lines():
+    data = request.get_json(silent=True) or {}
+    try:
+        lines = int(data.get("top_lines"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Nombre de lignes invalide."}), 400
+    if lines < 1 or lines > MAX_TOP_ITEMS:
+        return jsonify({"error": f"Nombre de lignes invalide (1-{MAX_TOP_ITEMS})."}), 400
+    request.current_user.top_lines = lines
+    db.session.commit()
+    return jsonify({"status": "ok", "top_lines": lines})
+
+
 @api_bp.route("/api/top/reorder", methods=["POST"])
 @token_required
 def api_reorder_top():
     data = request.get_json(silent=True) or {}
+
+    tops = (TopFilm.query.filter_by(user_id=request.current_user.id)
+            .order_by(TopFilm.position.asc()).all())
+    by_key = {_top_key(t): t for t in tops}
+
+    # Nouveau format : {"items": [{"key": "film:3", "position": 20}, ...]}
+    # Autorise les positions non collees (lignes vides), donc on applique
+    # exactement les positions recues au lieu de renumeroter 1..n.
+    items = data.get("items")
+    if items is not None:
+        if not isinstance(items, list) or len(items) != len(by_key):
+            return jsonify({"error": "Liste incoherente."}), 400
+        if len(items) > MAX_TOP_ITEMS:
+            return jsonify({"error": "Trop d'entrees."}), 400
+        seen = set()
+        resolved = []
+        for it in items:
+            if not isinstance(it, dict):
+                return jsonify({"error": "Entree invalide."}), 400
+            key = it.get("key")
+            try:
+                position = int(it.get("position"))
+            except (TypeError, ValueError):
+                return jsonify({"error": "Position invalide."}), 400
+            if position < 1 or position > MAX_TOP_ITEMS:
+                return jsonify({"error": f"Position invalide (1-{MAX_TOP_ITEMS})."}), 400
+            if key not in by_key:
+                return jsonify({"error": "Entree inconnue."}), 400
+            if position in seen:
+                return jsonify({"error": "Positions en double."}), 400
+            seen.add(position)
+            resolved.append((by_key[key], position))
+        for entry, position in resolved:
+            entry.position = position
+        db.session.commit()
+        return jsonify({"status": "ok"})
+
+    # Ancien format (retrocompatibilite) : {"order": ["film:3", ...]} -> 1..n
     order = data.get("order")
     if not isinstance(order, list) or not order:
         return jsonify({"error": "ordre requis."}), 400
     if len(order) > MAX_TOP_ITEMS:
         return jsonify({"error": "Trop d'entrees."}), 400
-
-    tops = (TopFilm.query.filter_by(user_id=request.current_user.id)
-            .order_by(TopFilm.position.asc()).all())
-    by_key = {_top_key(t): t for t in tops}
     if len(order) != len(by_key) or len(set(order)) != len(order):
         return jsonify({"error": "Liste incoherente."}), 400
     for key in order:
@@ -1559,7 +1610,6 @@ def api_remove_top(film_id):
     entry = TopFilm.query.filter_by(film_id=film_id, user_id=request.current_user.id).first()
     if entry:
         db.session.delete(entry)
-        _renumber_top(request.current_user.id)
         db.session.commit()
     return jsonify({"status": "ok", "message": "Retiré du top."})
 
@@ -1570,16 +1620,8 @@ def api_remove_top_imdb(imdb_id):
     entry = TopFilm.query.filter_by(imdb_id=imdb_id, user_id=request.current_user.id).first()
     if entry:
         db.session.delete(entry)
-        _renumber_top(request.current_user.id)
         db.session.commit()
     return jsonify({"status": "ok", "message": "Retiré du top."})
-
-
-def _renumber_top(user_id):
-    tops = (TopFilm.query.filter_by(user_id=user_id)
-            .order_by(TopFilm.position.asc()).all())
-    for idx, t in enumerate(tops, start=1):
-        t.position = idx
 
 
 # ─── Hidden films (admin) ────────────────────────────────────────────

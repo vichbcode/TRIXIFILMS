@@ -43,6 +43,7 @@ class User(db.Model, UserMixin):
     password_hash = Column(String(256), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     is_admin = Column(Boolean, default=False, nullable=False)
+    top_lines = Column(Integer, default=20, nullable=False)
 
     def get_id(self):
         return str(self.id)

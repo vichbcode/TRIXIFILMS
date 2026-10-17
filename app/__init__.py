@@ -173,6 +173,7 @@ def create_app():
                 db.session.execute(sa_text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0"))
             db.session.commit()
 
+        ensure_column("users", "top_lines", "ALTER TABLE users ADD COLUMN top_lines INTEGER DEFAULT 20")
         ensure_column("notations", "imdb_id", "ALTER TABLE notations ADD COLUMN imdb_id VARCHAR(20) DEFAULT ''")
         ensure_column("messages", "imdb_id", "ALTER TABLE messages ADD COLUMN imdb_id VARCHAR(20) DEFAULT ''")
         ensure_column("box_films", "imdb_id", "ALTER TABLE box_films ADD COLUMN imdb_id VARCHAR(20) DEFAULT ''")
