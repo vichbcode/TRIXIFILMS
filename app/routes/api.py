@@ -1066,6 +1066,66 @@ def api_wd_credits(imdb_id):
     return jsonify(out)
 
 
+@api_bp.route("/api/wd/series/<string:imdb_id>/episodes", methods=["GET"])
+@rate_limit("api_wd_series_episodes", 30, 60, 3600)
+def api_wd_series_episodes(imdb_id):
+    """Realisateur/scenario par episode d'une serie via Wikidata.
+
+    Cinemeta ne fournit le realisateur qu'au niveau de la serie ; cet
+    endpoint expose les credits propres a chaque episode (cle "S:E") quand
+    Wikidata les connait. Aucune cle API requise.
+    """
+    imdb_id = _sanitize_str(imdb_id, 20)
+    if not re.fullmatch(r"tt\d+", imdb_id or ""):
+        return jsonify({"error": "imdb_id invalide"}), 400
+    import requests as http_req
+    ua = {"User-Agent": "TRIXIFILMS/1.0 (contact: app)"}
+    ckey = "series_ep:%s" % imdb_id
+    cached = _cache_get(ckey)
+    if cached is not None:
+        return jsonify(cached)
+
+    resolve = 'SELECT ?series WHERE { ?series wdt:P345 "%s" . } LIMIT 1' % imdb_id
+    qid = ""
+    for row in _wd_sparql(http_req, ua, resolve, timeout=15):
+        qid = row.get("series", {}).get("value", "").rsplit("/", 1)[-1]
+        if qid.startswith("Q"):
+            break
+    if not qid:
+        return jsonify({"episodes": {}})
+
+    sparql = """
+    SELECT ?seasonNum ?epNum ?dirLabel ?writerLabel WHERE {
+      ?season wdt:P179 wd:%s ; p:P179 ?ss .
+      ?ss pq:P1545 ?seasonNum .
+      ?season p:P527 ?es .
+      ?es ps:P527 ?ep ; pq:P1545 ?epNum .
+      OPTIONAL { ?ep wdt:P57 ?dir . }
+      OPTIONAL { ?ep wdt:P58 ?writer . }
+      SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". }
+    }
+    """ % qid
+    episodes = {}
+    for row in _wd_sparql(http_req, ua, sparql, timeout=30):
+        season = row.get("seasonNum", {}).get("value", "")
+        number = row.get("epNum", {}).get("value", "")
+        if not season or not number:
+            continue
+        entry = episodes.setdefault(
+            "%s:%s" % (season, number), {"director": [], "writer": []})
+        for field, var in (("director", "dirLabel"), ("writer", "writerLabel")):
+            label = row.get(var, {}).get("value", "").strip()
+            if label and not re.fullmatch(r"Q\d+", label) and label not in entry[field]:
+                entry[field].append(label)
+    for entry in episodes.values():
+        entry["director"] = entry["director"][:6]
+        entry["writer"] = entry["writer"][:8]
+    out = {"episodes": episodes}
+    if episodes:
+        _cache_set(ckey, out)
+    return jsonify(out)
+
+
 @api_bp.route("/api/tmdb/person/<path:name>", methods=["GET"])
 @rate_limit("api_tmdb_person", 30, 60, 600)
 def api_tmdb_person(name):
