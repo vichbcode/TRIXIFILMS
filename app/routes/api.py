@@ -1,4 +1,4 @@
-import re, math, secrets
+import re, math, secrets, time, logging
 from datetime import datetime
 from urllib.parse import quote
 
@@ -19,6 +19,9 @@ from app.api_rate_limit import rate_limit, clear_rate_limit
 
 api_bp = Blueprint("api", __name__)
 
+# Logger utilisable depuis les threads (hors contexte Flask).
+_logger = logging.getLogger(__name__)
+
 PER_PAGE = 24
 MIME_MAP = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "gif": "image/gif"}
 _SHARE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -31,6 +34,26 @@ def _sanitize_str(val, maxlen=500):
     for ch in ('<', '>', '"', "'", ';', '&'):
         s = s.replace(ch, '')
     return s
+
+
+# Cache memoire (par instance serverless) pour les appels Wikidata, qui sont
+# lents et tres variables. Evite de refaire une requete a chaque ouverture.
+_WD_CACHE = {}
+_WD_CACHE_TTL = 6 * 3600
+
+
+def _cache_get(key):
+    item = _WD_CACHE.get(key)
+    if item and (time.time() - item[0]) < _WD_CACHE_TTL:
+        return item[1]
+    return None
+
+
+def _cache_set(key, value):
+    _WD_CACHE[key] = (time.time(), value)
+    if len(_WD_CACHE) > 500:
+        for k in sorted(_WD_CACHE, key=lambda k: _WD_CACHE[k][0])[:100]:
+            _WD_CACHE.pop(k, None)
 
 
 def _viewer_id_from_header():
@@ -735,30 +758,60 @@ def _norm_name(s):
     return "".join(c for c in s if unicodedata.category(c) != "Mn")
 
 
-def _wd_entities(http_req, ua, qids):
-    """Recupere plusieurs entites Wikidata en peu d'appels (wbgetentities)."""
-    out = {}
-    uniq = list(dict.fromkeys(qids))
-    for i in range(0, len(uniq), 50):
-        chunk = uniq[i:i + 50]
+def _wd_sparql(http_req, ua, query, timeout=25, retries=2):
+    """Execute une requete WDQS (POST) avec quelques tentatives.
+
+    Gere le 429 (Too Many Requests) en respectant Retry-After : le service
+    limite parfois temporairement les appels.
+    """
+    import time as _time
+    url = "https://query.wikidata.org/sparql"
+    headers = {**ua, "Accept": "application/sparql-results+json"}
+    for attempt in range(retries + 1):
         try:
-            rr = http_req.get(
-                "https://www.wikidata.org/w/api.php",
-                params={"action": "wbgetentities", "format": "json",
-                        "ids": "|".join(chunk),
-                        "props": "labels|claims", "languages": "fr|en"},
-                headers=ua, timeout=25)
-            rr.raise_for_status()
-            data = rr.json()
-            if "error" not in data:
-                out.update(data.get("entities", {}))
+            resp = http_req.post(url, data={"query": query},
+                                 headers=headers, timeout=timeout)
+            if resp.status_code == 429:
+                delay = 2.0 * (attempt + 1)
+                try:
+                    delay = max(delay, float(resp.headers.get("Retry-After", 0)))
+                except (TypeError, ValueError):
+                    pass
+                if attempt >= retries:
+                    break
+                _time.sleep(min(delay, 8))
+                continue
+            resp.raise_for_status()
+            return resp.json().get("results", {}).get("bindings", [])
         except Exception:
-            current_app.logger.warning("Wikidata EntityData batch failed")
+            if attempt >= retries:
+                break
+            _time.sleep(1.5 * (attempt + 1))
+    _logger.warning("Wikidata SPARQL failed after retries")
+    return []
+
+
+def _wd_labels(http_req, ua, qids):
+    """Recupere les libelles fr/en de plusieurs QID via SPARQL (sans API)."""
+    qids = [q for q in dict.fromkeys(qids) if q]
+    if not qids:
+        return {}
+    vals = " ".join("wd:%s" % q for q in qids)
+    query = """
+    SELECT ?p ?pLabel WHERE { VALUES ?p { %s }
+      SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". } }
+    """ % vals
+    out = {}
+    for row in _wd_sparql(http_req, ua, query, timeout=20):
+        qid = row.get("p", {}).get("value", "").rsplit("/", 1)[-1]
+        label = row.get("pLabel", {}).get("value", "")
+        if qid.startswith("Q") and label and not re.fullmatch(r"Q\d+", label):
+            out.setdefault(qid, label)
     return out
 
 
 def _person_filmography_wikidata(name, strict=False):
-    """Filmographie sans cle API : IMDb suggestions -> Wikidata EntityData.
+    """Filmographie sans cle API : IMDb suggestions -> Wikidata.
 
     strict=True : n'accepte que la personne dont le nom correspond exactement
     a la recherche (utilise pour la recherche de films par personne).
@@ -769,15 +822,20 @@ def _person_filmography_wikidata(name, strict=False):
     slug = _re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
     if not slug:
         return None, []
-    try:
-        r = http_req.get(
-            f"https://v3.sg.media-imdb.com/suggestion/x/{slug}.json",
-            headers=ua, timeout=10)
-        r.raise_for_status()
-        entries = r.json().get("d", [])
-    except Exception:
-        current_app.logger.exception("IMDb suggestions failed")
-        return None, []
+
+    entries = []
+    for attempt in range(2):
+        try:
+            r = http_req.get(
+                f"https://v3.sg.media-imdb.com/suggestion/x/{slug}.json",
+                headers=ua, timeout=10)
+            r.raise_for_status()
+            entries = r.json().get("d", [])
+            break
+        except Exception:
+            if attempt == 1:
+                current_app.logger.warning("IMDb suggestions failed")
+                return None, []
 
     wanted = _norm_name(name)
     candidates = [e for e in entries if _re.fullmatch(r"nm\d+", str(e.get("id", "")))][:6]
@@ -785,43 +843,31 @@ def _person_filmography_wikidata(name, strict=False):
         return None, []
     exact = next((e for e in candidates if _norm_name(e.get("l", "")) == wanted), None)
 
-    # Correspondance IMDb -> QID Wikidata (requete indexee, rapide).
+    # Correspondance IMDb -> QID : necessaire seulement pour les homonymes
+    # (resolution par label). On l'evite quand le nom correspond exactement,
+    # ce qui accelere le cas courant.
     shortlist = candidates[:4]
-    nmids = " ".join('"%s"' % e["id"] for e in shortlist)
-    resolve_q = ("SELECT ?imdb ?p WHERE { VALUES ?imdb { %s } "
-                 "?p wdt:P345 ?imdb }" % nmids)
     nm_to_qid = {}
-    try:
-        rr = http_req.get(
-            "https://query.wikidata.org/sparql",
-            params={"query": resolve_q},
-            headers={**ua, "Accept": "application/sparql-results+json"},
-            timeout=12)
-        rr.raise_for_status()
-        for row in rr.json().get("results", {}).get("bindings", []):
+    if not exact:
+        nmids = " ".join('"%s"' % e["id"] for e in shortlist)
+        resolve_q = ("SELECT ?imdb ?p WHERE { VALUES ?imdb { %s } "
+                     "?p wdt:P345 ?imdb }" % nmids)
+        for row in _wd_sparql(http_req, ua, resolve_q, timeout=15):
             imdb = row.get("imdb", {}).get("value", "")
-            uri = row.get("p", {}).get("value", "")
-            qid = uri.rsplit("/", 1)[-1]
+            qid = row.get("p", {}).get("value", "").rsplit("/", 1)[-1]
             if imdb.startswith("nm") and qid.startswith("Q"):
                 nm_to_qid[imdb] = qid
-    except Exception:
-        current_app.logger.exception("Wikidata QID lookup failed")
 
     # Resolution par labels uniquement si aucun nom exact cote IMDb :
     # evite les homonymes renvoyes par les suggestions.
     resolved = None
     if not exact and nm_to_qid:
-        ents = _wd_entities(
+        label_map = _wd_labels(
             http_req, ua,
             [nm_to_qid[e["id"]] for e in shortlist if e["id"] in nm_to_qid])
         for e in shortlist:
-            ent = ents.get(nm_to_qid.get(e["id"], "")) or {}
-            labels = set()
-            for lang in ("fr", "en"):
-                lab = ent.get("labels", {}).get(lang, {}).get("value")
-                if lab:
-                    labels.add(lab)
-            if any(_norm_name(lab) == wanted for lab in labels):
+            lab = label_map.get(nm_to_qid.get(e["id"], ""), "")
+            if _norm_name(lab) == wanted:
                 resolved = e
                 break
 
@@ -831,13 +877,32 @@ def _person_filmography_wikidata(name, strict=False):
     person = person or candidates[0]
     if not _re.fullmatch(r"nm\d+", str(person["id"])):
         return None, []
-    pqid = nm_to_qid.get(str(person["id"]))
-    if not pqid:
-        return None, []
 
-    # Filmographie : requete SPARQL minimale (le label service rendait la
-    # requete 40x plus lente). Labels/dates/imdb recuperes apres coup via
-    # Special:EntityData (CDN, rapide et fiable).
+    def _qid_for_person():
+        found = nm_to_qid.get(str(person["id"]))
+        if found:
+            return found
+        q = ('SELECT ?p WHERE { VALUES ?imdb { "%s" } ?p wdt:P345 ?imdb }'
+             % str(person["id"]))
+        for row in _wd_sparql(http_req, ua, q, timeout=15):
+            qid = row.get("p", {}).get("value", "").rsplit("/", 1)[-1]
+            if qid.startswith("Q"):
+                return qid
+        return None
+
+    def _collect(rows):
+        role_map = {}
+        for row in rows:
+            uri = row.get("film", {}).get("value", "")
+            role = row.get("role", {}).get("value", "")
+            qid = uri.rsplit("/", 1)[-1]
+            if qid.startswith("Q"):
+                lst = role_map.setdefault(qid, [])
+                if role and role not in lst:
+                    lst.append(role)
+        return role_map
+
+    # Filmographie par identifiant IMDb (P345 indexe : requete rapide).
     sparql = """
     SELECT ?film ?role WHERE {
       ?p wdt:P345 "%s".
@@ -846,27 +911,21 @@ def _person_filmography_wikidata(name, strict=False):
       UNION { ?film wdt:P161 ?p . BIND("actor" AS ?role) }
     } LIMIT 500
     """ % str(person["id"])
-    try:
-        r2 = http_req.get(
-            "https://query.wikidata.org/sparql",
-            params={"query": sparql},
-            headers={**ua, "Accept": "application/sparql-results+json"},
-            timeout=20)
-        r2.raise_for_status()
-        rows = r2.json().get("results", {}).get("bindings", [])
-    except Exception:
-        current_app.logger.exception("Wikidata filmography query failed")
-        rows = []
+    role_by_qid = _collect(_wd_sparql(http_req, ua, sparql, timeout=30))
 
-    role_by_qid = {}
-    for row in rows:
-        uri = row.get("film", {}).get("value", "")
-        role = row.get("role", {}).get("value", "")
-        qid = uri.rsplit("/", 1)[-1]
-        if qid.startswith("Q"):
-            lst = role_by_qid.setdefault(qid, [])
-            if role and role not in lst:
-                lst.append(role)
+    # Repli par QID de la personne si la premiere requete n'a rien donne.
+    if not role_by_qid:
+        pqid = _qid_for_person()
+        if pqid:
+            sparql2 = """
+            SELECT ?film ?role WHERE {
+              { ?film wdt:P57 wd:%s . BIND("director" AS ?role) }
+              UNION { ?film wdt:P58 wd:%s . BIND("writer" AS ?role) }
+              UNION { ?film wdt:P161 wd:%s . BIND("actor" AS ?role) }
+            } LIMIT 500
+            """ % (pqid, pqid, pqid)
+            role_by_qid = _collect(_wd_sparql(http_req, ua, sparql2, timeout=30))
+
     if not role_by_qid:
         return {
             "name": person.get("l") or name,
@@ -874,47 +933,60 @@ def _person_filmography_wikidata(name, strict=False):
             "profile": person.get("image") if isinstance(person.get("image"), str) else None,
         }, []
 
-    fents = _wd_entities(http_req, ua, list(role_by_qid)[:200])
+    # Metadonnees (libelle fr/en, imdb, annee, type) en un seul appel VALUES,
+    # ce qui evite les appels wbgetentities (soumis a un 429 agressif).
+    meta_qids = list(role_by_qid)[:400]
+    vals = " ".join("wd:%s" % q for q in meta_qids)
+    meta_q = """
+    SELECT ?film ?filmLabel ?imdb ?date ?type WHERE {
+      VALUES ?film { %s }
+      OPTIONAL { ?film wdt:P345 ?imdb }
+      OPTIONAL { ?film wdt:P577 ?date }
+      OPTIONAL { ?film wdt:P31 ?type }
+      SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". }
+    } LIMIT 6000
+    """ % vals
+    meta = {}
+    for row in _wd_sparql(http_req, ua, meta_q, timeout=40):
+        qid = row.get("film", {}).get("value", "").rsplit("/", 1)[-1]
+        if not qid.startswith("Q"):
+            continue
+        e = meta.setdefault(qid, {"label": "", "imdb": "", "years": set(), "types": set()})
+        if not e["label"]:
+            e["label"] = row.get("filmLabel", {}).get("value", "")
+        if not e["imdb"]:
+            imdb = row.get("imdb", {}).get("value", "")
+            if imdb.startswith("tt"):
+                e["imdb"] = imdb
+        dv = row.get("date", {}).get("value", "")
+        ym = _re.match(r"[-+]?(\d{4})", dv)
+        if ym:
+            e["years"].add(ym.group(1))
+        tv = row.get("type", {}).get("value", "")
+        if tv:
+            e["types"].add(tv.rsplit("/", 1)[-1])
 
-    # Types non-cinema exclus (series TV, episodes...) pour eviter les faux films.
-    bad_types = {"Q5398426", "Q21198342", "Q169930", "Q15744341"}
-
-    def _claim_values(ent, prop):
-        out = []
-        for st in ent.get("claims", {}).get(prop, []):
-            snak = st.get("mainsnak") or {}
-            dv = snak.get("datavalue") or {}
-            out.append(dv.get("value"))
-        return out
+    # Types non-cinema exclus : series, saisons et episodes TV, jeux video...
+    bad_types = {"Q5398426", "Q21198342", "Q3464665", "Q21191270",
+                 "Q1259759", "Q15416", "Q169930", "Q15744341", "Q7889"}
 
     grouped = []
     for qid, roles in role_by_qid.items():
-        ent = fents.get(qid)
-        if not ent:
+        e = meta.get(qid)
+        if not e:
             continue
-        p31 = {v.get("id") for v in _claim_values(ent, "P31")
-               if isinstance(v, dict)}
-        if p31 & bad_types:
+        if e["types"] & bad_types:
             continue
-        imdb = next((str(v) for v in _claim_values(ent, "P345")
-                     if str(v).startswith("tt")), None)
-        if not imdb:
+        if not e["imdb"] or not e["label"]:
             continue
-        label = ""
-        for lang in ("fr", "en"):
-            label = ent.get("labels", {}).get(lang, {}).get("value") or ""
-            if label:
-                break
-        if not label:
+        if _re.fullmatch(r"Q\d+", e["label"]):  # label service sans libelle
             continue
-        years = [v.get("time", "")[1:5] for v in _claim_values(ent, "P577")
-                 if isinstance(v, dict) and len(v.get("time", "")) >= 5]
-        year = min(years) if years else ""
-        grouped.append({"imdb_id": imdb, "title": label, "year": year,
+        year = min(e["years"]) if e["years"] else ""
+        grouped.append({"imdb_id": e["imdb"], "title": e["label"], "year": year,
                         "poster": None, "rating": None, "roles": roles})
 
     grouped.sort(key=lambda f: f["year"], reverse=True)
-    films = grouped[:50]
+    films = grouped[:200]
     role_labels = {"director": "Réalisateur", "writer": "Scénariste", "actor": "Acteur"}
     for f in films:
         f["roles"] = [role_labels[r] for r in f["roles"]]
@@ -922,17 +994,66 @@ def _person_filmography_wikidata(name, strict=False):
     profile = person.get("image")
     if not profile:
         import urllib.parse as _up
-        pent = (_wd_entities(http_req, ua, [pqid]).get(pqid) or {})
-        for v in _claim_values(pent, "P18"):
-            if isinstance(v, str) and v:
-                profile = ("https://commons.wikimedia.org/wiki/Special:FilePath/"
-                           + _up.quote(v) + "?width=400")
-                break
+        pqid = _qid_for_person()
+        if pqid:
+            q = ('SELECT ?img WHERE { VALUES ?p { wd:%s } ?p wdt:P18 ?img } LIMIT 1'
+                 % pqid)
+            for row in _wd_sparql(http_req, ua, q, timeout=15):
+                img = row.get("img", {}).get("value", "")
+                if img:
+                    fname = img.rsplit("/", 1)[-1]
+                    profile = ("https://commons.wikimedia.org/wiki/Special:FilePath/"
+                               + _up.quote(fname) + "?width=400")
+                    break
     return {
         "name": person.get("l") or name,
         "department": None,
         "profile": profile if isinstance(profile, str) else None,
     }, films
+
+
+@api_bp.route("/api/wd/credits/<string:imdb_id>", methods=["GET"])
+@rate_limit("api_wd_credits", 60, 60, 3600)
+def api_wd_credits(imdb_id):
+    """Equipe du film (realisation/scenario/distribution) via Wikidata.
+
+    Complete les fiches Cinema quand Cinemeta/Wikipedia ne fournissent pas
+    de distribution. Aucune cle API requise.
+    """
+    imdb_id = _sanitize_str(imdb_id, 20)
+    if not re.fullmatch(r"tt\d+", imdb_id or ""):
+        return jsonify({"error": "imdb_id invalide"}), 400
+    import requests as http_req
+    ua = {"User-Agent": "TRIXIFILMS/1.0 (contact: app)"}
+    ckey = "credits:%s" % imdb_id
+    cached = _cache_get(ckey)
+    if cached is not None:
+        return jsonify(cached)
+    sparql = """
+    SELECT ?prop ?pLabel WHERE {
+      ?film wdt:P345 "%s".
+      { ?film wdt:P57 ?p . BIND("director" AS ?prop) }
+      UNION { ?film wdt:P58 ?p . BIND("writer" AS ?prop) }
+      UNION { ?film wdt:P161 ?p . BIND("cast" AS ?prop) }
+      SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". }
+    } LIMIT 150
+    """ % imdb_id
+    rows = _wd_sparql(http_req, ua, sparql, timeout=25)
+
+    out = {"director": [], "writer": [], "cast": []}
+    for row in rows:
+        prop = row.get("prop", {}).get("value", "")
+        label = row.get("pLabel", {}).get("value", "").strip()
+        if prop not in out or not label:
+            continue
+        if re.fullmatch(r"Q\d+", label):  # service de label sans libelle
+            continue
+        if label not in out[prop]:
+            out[prop].append(label)
+    out["cast"] = out["cast"][:40]
+    if out["director"] or out["writer"] or out["cast"]:
+        _cache_set(ckey, out)
+    return jsonify(out)
 
 
 @api_bp.route("/api/tmdb/person/<path:name>", methods=["GET"])
@@ -946,8 +1067,14 @@ def api_tmdb_person(name):
     strict = request.args.get("strict") == "1"
     api_key = current_app.config.get("TMDB_API_KEY", "")
     if not api_key:
-        person, films = _person_filmography_wikidata(name, strict=strict)
-        return jsonify({"person": person, "films": films})
+        ckey = "person:%s:%s" % (_norm_name(name), strict)
+        cached = _cache_get(ckey)
+        if cached is None:
+            person, films = _person_filmography_wikidata(name, strict=strict)
+            cached = {"person": person, "films": films}
+            if films:  # ne cacher que les resultats non vides
+                _cache_set(ckey, cached)
+        return jsonify(cached)
     import requests as http_req
     try:
         r = http_req.get(
