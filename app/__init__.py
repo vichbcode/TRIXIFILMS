@@ -94,6 +94,11 @@ def create_app():
         response.headers.setdefault("Pragma", "no-cache")
         return response
 
+    @app.context_processor
+    def inject_globals():
+        from datetime import datetime
+        return {"current_year": datetime.now().year}
+
     @app.before_request
     def enforce_https():
         if is_prod and request.headers.get("X-Forwarded-Proto", "http") != "https" and request.scheme != "https":
@@ -106,7 +111,8 @@ def create_app():
     #   /trailer/...        lecteur integre de l'app
     #   /installation...    page de telechargement APK (+ admin/suggestions)
     #   /static/...         fichiers statiques
-    _OPEN_PREFIXES = ("/api/", "/trailer/", "/installation", "/static/")
+    _OPEN_PREFIXES = ("/api/", "/trailer/", "/installation", "/static/",
+                      "/mentions-legales", "/confidentialite")
 
     @app.before_request
     def site_under_construction():

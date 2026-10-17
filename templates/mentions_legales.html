@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="legal-wrap">
+  <h1>Mentions légales</h1>
+  <p class="legal-updated">Dernière mise à jour : 17 octobre 2026</p>
+
+  <h2>1. Éditeur du site</h2>
+  <p>Le site et l'application <strong>TRIXIFILMS</strong> constituent un projet indépendant, à but non commercial.</p>
+  <ul>
+    <li><strong>Éditeur / Auteur :</strong> Anonyme (l'auteur souhaite conserver l'anonymat).</li>
+    <li><strong>Directeur de la publication :</strong> Anonyme.</li>
+    <li><strong>Contact :</strong> <a href="mailto:zogixa@protonmail.com">zogixa@protonmail.com</a></li>
+  </ul>
+
+  <h2>2. Hébergement</h2>
+  <ul>
+    <li><strong>Site web :</strong> Vercel Inc. — 440 N Barranca Ave #4133, Covina, CA 91723, États-Unis.</li>
+    <li><strong>Distribution de l'application (APK) :</strong> GitHub Inc. (GitHub Releases) — 88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, États-Unis.</li>
+    <li><strong>Stockage des images :</strong> Cloudinary Ltd.</li>
+  </ul>
+
+  <h2>3. Sources de contenu tierces</h2>
+  <p>Le catalogue, les affiches, les synopsis et les bandes-annonces proviennent de sources tierces : Cinemeta (données IMDb), Wikipédia, Wikidata, YouTube et, le cas échéant, TMDB. Ces contenus restent la propriété de leurs détenteurs respectifs.</p>
+
+  <h2>4. Propriété intellectuelle</h2>
+  <p>La marque et le nom « TRIXIFILMS », l'interface et le code de l'application appartiennent à l'éditeur. Toute reproduction non autorisée est interdite. Les contenus tiers cités ci-dessus appartiennent à leurs auteurs et détenteurs de droits ; TRIXIFILMS n'en revendique pas la propriété.</p>
+
+  <h2>5. Responsabilité</h2>
+  <p>Le site et l'application sont fournis « en l'état », sans garantie d'aucune sorte. L'éditeur ne saurait être tenu responsable des contenus provenant de sources tierces, ni d'une éventuelle indisponibilité du service.</p>
+
+  <h2>6. Droit applicable</h2>
+  <p>Les présentes mentions sont soumises au droit français. En cas de litige, et à défaut de résolution amiable, les tribunaux français seront compétents.</p>
+
+  <p class="legal-link"><a href="{{ url_for('main.confidentialite') }}">→ Voir la politique de confidentialité</a></p>
+</div>
+{% endblock %}

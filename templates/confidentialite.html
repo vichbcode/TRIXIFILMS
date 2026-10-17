@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="legal-wrap">
+  <h1>Politique de confidentialité</h1>
+  <p class="legal-updated">Dernière mise à jour : 17 octobre 2026</p>
+
+  <p>TRIXIFILMS respecte votre vie privée. Cette page explique quelles données sont utilisées, pourquoi, et quels sont vos droits.</p>
+
+  <h2>1. Données collectées</h2>
+  <ul>
+    <li><strong>Compte :</strong> un prénom (pseudo) et un mot de passe — le mot de passe est <strong>haché</strong> (irréversible) et n'est jamais stocké en clair.</li>
+    <li><strong>Contenus que vous créez :</strong> notes (1 à 5 étoiles), messages, suggestions, contenu des « Box ».</li>
+    <li><strong>Données techniques minimales :</strong> adresse IP, utilisée uniquement pour la sécurité (protection contre les abus et le spam).</li>
+  </ul>
+  <p>Aucune donnée de géolocalisation, aucun contact du téléphone et aucun identifiant publicitaire ne sont collectés.</p>
+
+  <h2>2. Ce que nous ne faisons pas</h2>
+  <ul>
+    <li>Aucune publicité.</li>
+    <li>Aucun traceur publicitaire ni outil d'analyse d'audience.</li>
+    <li>Aucune revente ni partage de vos données à des fins commerciales.</li>
+  </ul>
+
+  <h2>3. Pourquoi ces données sont utilisées</h2>
+  <ul>
+    <li>Fournir le service : compte, notes, messages, Box, catalogue.</li>
+    <li>Assurer la sécurité : lutte contre le spam et les tentatives d'abus.</li>
+  </ul>
+
+  <h2>4. Base légale (RGPD)</h2>
+  <ul>
+    <li><strong>Exécution du service</strong> (compte, notes, messages, Box).</li>
+    <li><strong>Intérêt légitime</strong> (sécurité, prévention des abus).</li>
+  </ul>
+
+  <h2>5. Durée de conservation</h2>
+  <ul>
+    <li>Données de compte et contenus : tant que le compte existe.</li>
+    <li>Suggestions : jusqu'à leur traitement.</li>
+    <li>Jeton de connexion (app mobile) : 15 minutes pour l'accès, 7 jours pour le rafraîchissement. Ils sont stockés localement dans le <strong>Keystore Android</strong>.</li>
+  </ul>
+
+  <h2>6. Prestataires et sources tierces</h2>
+  <ul>
+    <li><strong>Hébergement :</strong> Vercel Inc.</li>
+    <li><strong>Stockage des images :</strong> Cloudinary Ltd.</li>
+    <li><strong>Distribution de l'app (APK) :</strong> GitHub Inc.</li>
+    <li><strong>Sources de contenu :</strong> Cinemeta (IMDb), Wikipédia, Wikidata, YouTube et, le cas échéant, TMDB.</li>
+  </ul>
+
+  <h2>7. Cookies</h2>
+  <p>Le site n'utilise qu'un <strong>cookie de session technique</strong>, nécessaire à son fonctionnement. Aucun cookie de suivi ou publicitaire n'est utilisé.</p>
+
+  <h2>8. Sécurité</h2>
+  <p>Toutes les communications sont chiffrées (HTTPS). Les mots de passe sont hachés, les jetons de connexion sont stockés dans le Keystore Android, et des limites anti-abus protègent le service.</p>
+
+  <h2>9. Vos droits</h2>
+  <p>Conformément au RGPD, vous disposez d'un droit d'accès, de rectification, d'effacement, d'opposition et de portabilité de vos données. Pour exercer ces droits, écrivez à <a href="mailto:zogixa@protonmail.com">zogixa@protonmail.com</a>.</p>
+
+  <h2>10. Mineurs</h2>
+  <p>Le service n'est pas destiné aux enfants de moins de 13 ans.</p>
+
+  <h2>11. Modifications</h2>
+  <p>Cette politique peut être mise à jour. La date de dernière modification figure en haut de cette page.</p>
+
+  <h2>12. Contact</h2>
+  <p>Pour toute question relative à vos données : <a href="mailto:zogixa@protonmail.com">zogixa@protonmail.com</a>.</p>
+
+  <p class="legal-link"><a href="{{ url_for('main.mentions_legales') }}">→ Voir les mentions légales</a></p>
+</div>
+{% endblock %}

@@ -541,3 +541,13 @@ def film_message(film_id):
 
     flash("Message enregistré !", "success")
     return redirect(url_for("main.film_detail", film_id=film_id))
+
+
+@main_bp.route("/mentions-legales")
+def mentions_legales():
+    return render_template("mentions_legales.html", title="Mentions légales")
+
+
+@main_bp.route("/confidentialite")
+def confidentialite():
+    return render_template("confidentialite.html", title="Politique de confidentialité")

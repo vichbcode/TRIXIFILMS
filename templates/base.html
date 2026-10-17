@@ -68,6 +68,8 @@
     {% block content %}{% endblock %}
   </main>
 
+  {% include "_legal_footer.html" %}
+
   {% block scripts %}{% endblock %}
 
   <a href="{{ url_for('main.shorts') }}" class="shorts-fab" title="Bandes-annonces" aria-label="Bandes-annonces">
