@@ -29,6 +29,10 @@ def _get_jwt_secret():
     # invaliderait tous les tokens a chaque cold start (deconnexions permanentes).
     base = os.environ.get("DATABASE_URL") or ""
     if base:
+        logger.warning(
+            "JWT_SECRET et FLASK_SECRET absents : repli sur un secret derive de "
+            "DATABASE_URL. Definir JWT_SECRET (32+ caracteres aleatoires) en production."
+        )
         return hashlib.sha256(("trixifilms-jwt-v1:" + base).encode("utf-8")).hexdigest()
     import secrets
     logger.warning("JWT_SECRET absent: generation d'une cle aleatoire (les tokens seront invalides au redemarrage).")

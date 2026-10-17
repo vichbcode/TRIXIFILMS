@@ -1,9 +1,12 @@
+import hmac
+import os
 import time
 
 import requests as http_req
 from flask import (Blueprint, render_template, request, redirect,
                    url_for, session, flash)
 
+from app.api_rate_limit import check_rate_limit
 from app.models import db, Suggestion
 
 installation_bp = Blueprint("installation", __name__)
@@ -12,9 +15,13 @@ _RELEASES_API = ("https://api.github.com/repos/vichbcode/TRIXIFILMS/"
                  "releases/latest")
 _DOWNLOAD_URL = ("https://github.com/vichbcode/TRIXIFILMS/releases/"
                  "latest/download/TRIXIFILMS.apk")
-_ADMIN_PASSWORD = "zogixa95@#"
 
 _release_cache = {"data": None, "ts": 0.0}
+
+
+def _admin_password():
+    """Mot de passe admin lu depuis l'environnement (jamais code en dur)."""
+    return os.environ.get("INSTALL_ADMIN_PASSWORD", "")
 
 
 def _release_info():
@@ -56,6 +63,10 @@ def download():
 
 @installation_bp.route("/installation", methods=["POST"])
 def suggest():
+    allowed, retry = check_rate_limit("install_suggest", 5, 600, 1800)
+    if not allowed:
+        flash(f"Trop de suggestions envoyees. Reessaye dans {retry}s.", "error")
+        return redirect(url_for("installation.installation") + "#suggestion")
     message = request.form.get("message", "").strip()
     if not message:
         flash("Tu dois ecrire quelque chose.", "error")
@@ -83,8 +94,16 @@ def admin():
 
 @installation_bp.route("/installation/admin", methods=["POST"])
 def admin_login():
+    allowed, retry = check_rate_limit("install_admin", 5, 900, 1800)
+    if not allowed:
+        flash(f"Trop de tentatives. Reessaye dans {retry}s.", "error")
+        return redirect(url_for("installation.admin"))
+    expected = _admin_password()
     password = request.form.get("password", "")
-    if password == _ADMIN_PASSWORD:
+    if not expected:
+        flash("Administration desactivee (mot de passe non configure).", "error")
+        return redirect(url_for("installation.admin"))
+    if hmac.compare_digest(password, expected):
         session["inst_admin"] = True
         session.permanent = True
         suggestions = Suggestion.query.order_by(Suggestion.created_at.desc()).all()
