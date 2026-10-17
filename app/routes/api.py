@@ -1604,12 +1604,22 @@ def api_reorder_top():
     return jsonify({"status": "ok"})
 
 
+def _compact_top(user_id):
+    """Renumerote les positions 1..n apres suppression pour eviter les trous."""
+    tops = (TopFilm.query.filter_by(user_id=user_id)
+            .order_by(TopFilm.position.asc()).all())
+    for idx, t in enumerate(tops, start=1):
+        t.position = idx
+
+
 @api_bp.route("/api/top/<int:film_id>", methods=["DELETE"])
 @token_required
 def api_remove_top(film_id):
     entry = TopFilm.query.filter_by(film_id=film_id, user_id=request.current_user.id).first()
     if entry:
         db.session.delete(entry)
+        db.session.flush()
+        _compact_top(request.current_user.id)
         db.session.commit()
     return jsonify({"status": "ok", "message": "Retiré du top."})
 
@@ -1620,6 +1630,8 @@ def api_remove_top_imdb(imdb_id):
     entry = TopFilm.query.filter_by(imdb_id=imdb_id, user_id=request.current_user.id).first()
     if entry:
         db.session.delete(entry)
+        db.session.flush()
+        _compact_top(request.current_user.id)
         db.session.commit()
     return jsonify({"status": "ok", "message": "Retiré du top."})
 
