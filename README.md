@@ -1,131 +1,88 @@
 # TRIXIFILMS
 
-Application Flask de catalogue de films avec notation, commentaires et import TMDB.
+**TRIXIFILMS** est une application mobile Android gratuite pour explorer le cinéma et les séries : un catalogue mondial, des bandes-annonces, des fiches complètes, des notes et des messages, des collections partagées, et bien plus.
 
-## Installation
+Le site et l'application sont portés par un auteur indépendant qui souhaite rester anonyme.
 
-```bash
-python -m venv venv
-source venv/bin/activate  # ou venv\Scripts\activate sous Windows
-pip install -r requirements.txt
-```
+---
 
-## Configuration
+## Présentation
 
-Copier `.env.example` vers `.env` et ajuster les variables :
+TRIXIFILMS rassemble en une seule application tout ce qu'il faut pour découvrir et suivre des films et des séries :
 
-```bash
-cp .env.example .env
-```
+- un large catalogue de films et de séries ;
+- des fiches détaillées avec équipe et distribution ;
+- un flux de bandes-annonces ;
+- des notes et des discussions avec la communauté ;
+- des collections de films à partager entre amis ;
+- un compte persistant et sécurisé.
 
-Variables requises :
-- `FLASK_SECRET` — clé secrète Flask (obligatoire en production)
-- `ADMIN_PASS` ou `ADMIN_PASS_HASH` — mot de passe admin
+Tout fonctionne, tout est gratuit. Aucune publicité, aucun traceur, aucune revente de données.
 
-Variables optionnelles :
-- `TMDB_API_KEY` — clé API TMDB pour l'import de films
-- `FLASK_ENV` — `development` ou `production`
-- `PORT` — port d'écoute (défaut : 5000)
+---
 
-## Clés API optionnelles (gratuites)
+## Le catalogue et la recherche
 
-Les clés ne sont **pas obligatoires** : l'import depuis Wikipedia (`import_wikipedia.py`)
-fonctionne sans aucune clé. Elles activent seulement l'import TMDB (web + app).
+TRIXIFILMS propose des milliers de films et de séries.
 
-- **TMDB** (gratuit) : créer un compte sur https://www.themoviedb.org/ → Paramètres → API →
-  « Créer une clé API ». Variable : `TMDB_API_KEY` dans `.env`.
-- **OMDB** (gratuit, limité à 1 000 requêtes/jour) : https://www.omdbapi.com/apikey.aspx
-  (une clé par email). Données structurées (genre, réalisateur, acteurs, pays, affiche).
-  Variable : `OMDB_API_KEY`.
+La recherche fonctionne par titre, réalisateur, scénariste, acteur, production ou mots du résumé. Il est aussi possible de filtrer par genre et par origine, et de combiner les filtres pour affiner les résultats.
 
-## Sécurité
+Les films et les séries sont présentés séparément, chacun avec ses propres onglets et filtres.
 
-- En production : définir `FLASK_SECRET` et `JWT_SECRET` (jetons JWT de l'API).
-- XSS : les templates échappent tout contenu utilisateur (aucun `|safe`).
-- CSRF activé partout (formulaires web), JWT pour l'API mobile.
-- Rate-limiting + verrouillage sur login, inscription et ajouts.
-- HTTPS forcé en production (Talisman + HSTS).
+## Les fiches détaillées
 
-## Migration depuis l'ancien format Excel
+Chaque film dispose d'une fiche complète :
 
-```bash
-python migrate.py
-```
+- le synopsis ;
+- la fiche technique : année, durée, pays d'origine, note IMDb, genres ;
+- l'équipe et la distribution avec les photos.
 
-## Lancement
+Un appui sur une personne ouvre sa filmographie : tous les films qu'elle a réalisés, écrits ou dans lesquels elle a joué.
 
-```bash
-python app.py
-```
+Pour les séries, la fiche liste les saisons et les épisodes, avec pour chaque épisode le réalisateur et le scénariste.
 
-## Stockage des images (Cloudinary)
+## Short — le flux de bandes-annonces
 
-Les images (affiches et photos d'acteurs) sont hébergées sur **Cloudinary**
-et plus stockées en base. Chaque enregistrement possède une colonne `image`
-contenant l'URL Cloudinary. Ajouter dans `.env` :
+La page Short propose un flux vertical de bandes-annonces, comme un défilement sans fin.
 
-```
-CLOUDINARY_CLOUD_NAME="..."
-CLOUDINARY_API_KEY="..."
-CLOUDINARY_API_SECRET="..."
-CLOUDINARY_FOLDER="trixifilms"   # optionnel
-```
+Les vidéos se chargent automatiquement par lots, mélangées et issues de genres variés. Tu glisses vers le bas pour passer à la suivante, vers le haut pour revenir en arrière. Un bouton flottant permet d'y accéder depuis n'importe quelle page.
 
-Migrer les images déjà présentes en base (BLOB) vers Cloudinary (une seule fois) :
+## Le Top de la communauté
 
-```bash
-python migrate_images_cloudinary.py
-```
+La page Top affiche les meilleurs films du moment, classés selon les notes de la communauté. Tu peux y ajouter tes coups de cœur.
 
-## Migration SQLite → PostgreSQL
+## Les notes et les messages
 
-L'application lit la base via `DATABASE_URL`. En local, la valeur par défaut
-reste SQLite ; en production (ou pour passer à PostgreSQL), pointer vers une
-base PostgreSQL :
+Chaque film possède sa page de discussion. Les utilisateurs y laissent une note de 1 à 5 étoiles et écrivent des messages.
 
-```
-DATABASE_URL="postgresql+psycopg2://postgres:motdepasse@localhost:5432/trixifilms"
-```
+Le serveur force le vrai pseudo du compte sur chaque message et chaque note (pas d'usurpation possible). Sans compte, les messages et les notes sont publiés sous le nom « Anonyme ».
 
-Étapes :
-1. Créer la base cible : `CREATE DATABASE trixifilms;`
-2. Migrer d'abord les images vers Cloudinary (voir plus haut).
-3. Copier les données :
+## Les Box — collections partagées
 
-```bash
-python migrate_to_postgres.py          # copie SQLite -> PostgreSQL
-python migrate_to_postgres.py --reset  # vide d'abord la base cible
-```
+Les Box sont des collections de films que tu crées, remplis et partages.
 
-La recherche ignore les accents via `translate()` (compatible SQLite et PostgreSQL).
+- Chaque Box possède un nom et peut être publique ou privée.
+- Chaque Box possède un code unique à 8 caractères : envoie-le à tes amis pour qu'ils la rejoignent.
+- Les membres invités peuvent voir les films, seul le propriétaire gère le contenu.
 
-## Structure
+## Le compte
 
-```
-app/
-  __init__.py       → Factory create_app()
-  config.py         → Configuration (classes Config/Dev/Prod)
-  models.py         → Modèles SQLAlchemy (Film, Actor, Rating, Message)
-  utils.py          → Helpers (images, texte, notation)
-  routes/
-    main.py         → Routes films (CRUD, notation, messages)
-    admin.py        → Routes admin (login, logout, clear)
-    tmdb.py         → Routes TMDB (search, import)
-templates/          → Jinja2 templates
-static/             → CSS, JS, images
-data/uploads/       → Images uploadées (hors du web root)
-migrate.py          → Script de migration Excel → SQLite
-```
+L'inscription se fait en quelques secondes, avec un pseudo et un mot de passe. La session reste active : tu quittes l'application et tu reviens, tu es toujours connecté.
 
-## Changements récents
+Le mot de passe est stocké de façon sécurisée, et la connexion entre l'application et le serveur est chiffrée.
 
-- Migration Excel → SQLite (via SQLAlchemy)
-- Modularisation en blueprints
-- Pagination (24 films/page)
-- Nettoyage des images orphelines à la suppression
-- `.gitignore` + `requirements.txt` + `.env.example`
-- Mots de passe : plus de fallback en dur (variables d'environnement)
-- CSS inline déplacé dans `static/movie.css`
-- Image placeholder `static/no_image.svg`
-- Images déplacées vers Cloudinary (URL stockée dans la colonne `image`)
-- Support PostgreSQL (recherche compatible via `translate()`, script `migrate_to_postgres.py`)
+## Installation et mises à jour
+
+L'application s'installe à partir d'un fichier APK, disponible depuis la page d'installation du site.
+
+Une fois installée, elle vérifie automatiquement les nouvelles versions et propose de les installer en un appui. Il est aussi possible de lancer une vérification manuelle depuis les paramètres de l'application.
+
+Configuration requise : Android 7.0 ou plus récent.
+
+---
+
+## Informations
+
+- Éditeur : TRIXIFILMS, auteur anonyme.
+- Contact : zogixa@protonmail.com
+- Mentions légales et politique de confidentialité : disponibles sur le site.
